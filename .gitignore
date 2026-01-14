@@ -1,0 +1,60 @@
+# Ultra-Planning V2 - Git Ignore
+
+# Active session files (volatile, user-specific)
+active/task_plan.md
+active/context.md
+ledgers/CONTINUITY_active.md
+
+# Keep templates
+!active/TEMPLATE_*.md
+!ledgers/TEMPLATE_*.md
+
+# Session database (user-specific)
+sessions.db
+sessions.db-journal
+sessions.db-wal
+
+# Vector embeddings (large, can be regenerated)
+knowledge/vectors/*.vec
+knowledge/vectors/*.json
+
+# TLDR code analysis (can be regenerated)
+knowledge/code_tldr/*.json
+
+# Handoffs (user-specific session state)
+handoffs/latest.yaml
+handoffs/archive/*.yaml
+
+# Archive (user-specific completed tasks)
+archive/*/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.bak
+.*.bak

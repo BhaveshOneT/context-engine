@@ -1,0 +1,88 @@
+# YAML Handoff Template (90% token savings vs markdown)
+# This file transfers session state between sessions
+
+session_id: "sess_YYYYMMDD_terminal"
+task: "task_name_slug"
+status: "completed" # pending | in_progress | completed | blocked
+started_at: "2026-01-14T14:30:00Z"
+ended_at: "2026-01-14T16:45:00Z"
+terminal: "laptop" # laptop | desktop | ci | other
+duration_minutes: 135
+
+# Phase tracking (compact format)
+phases:
+  - {id: "research", status: "done", duration_min: 30}
+  - {id: "design", status: "done", duration_min: 15}
+  - {id: "implement", status: "done", duration_min: 60}
+  - {id: "test", status: "done", duration_min: 30}
+
+# Knowledge created (links to knowledge base)
+knowledge_created:
+  patterns:
+    - id: "pattern_id"
+      name: "Pattern Name"
+      files: ["src/path/file.ts"]
+      vector_id: "vec_001" # For semantic search
+      usage_count: 1
+
+  failures:
+    - id: "failure_id"
+      error: "Error description"
+      solution: "How to fix"
+      vector_id: "vec_002"
+
+  decisions:
+    - id: "decision_id"
+      choice: "What was chosen"
+      rejected: "What was not chosen"
+      rationale: "Why"
+
+  gotchas:
+    - id: "gotcha_id"
+      surprise: "What was unexpected"
+      handling: "How to deal with it"
+
+# Files modified
+files_created:
+  - "src/path/new_file.ts"
+  - "tests/new_test.ts"
+
+files_modified:
+  - "src/path/existing_file.ts"
+  - "package.json"
+
+# Next session hints (what future agent should know)
+next_session_hints: |
+  Pattern X is established. Consider:
+  - Integration with Y
+  - Edge case handling for Z
+  - Performance optimization in area W
+
+# Blockers (if any)
+blockers:
+  - issue: "Description of blocker"
+    since: "2026-01-14T15:00:00Z"
+    resolution: "Pending user input" # or "Resolved: [how]"
+
+# Metrics
+metrics:
+  tool_calls: 45
+  errors_encountered: 2
+  errors_resolved: 2
+  tests_passing: true
+  token_savings: 2150 # vs markdown format
+
+# Knowledge base hash (detect changes between sessions)
+knowledge_hash: "sha256:abc123..."
+
+# Cross-references
+relates_to:
+  previous_session: "sess_20260112_laptop" # null if first session
+  following_session: null # filled by next session
+  related_tasks: [] # other task IDs
+
+# Priority for next session
+next_priorities:
+  - "high: Test edge cases"
+  - "medium: Add error handling"
+  - "low: Update documentation"

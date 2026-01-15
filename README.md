@@ -24,6 +24,13 @@
 
 **[→ See Full V3 Features Documentation](V3_FEATURES.md)**
 
+### 🎨 **Latest: Codebase Refactoring (Jan 2026)**
+- 🧹 **239 Lines Removed** - Eliminated all code duplication
+- 🎯 **Single Source of Truth** - Centralized section prefixes and patterns
+- ⚡ **Performance Boost** - Unified caching layer across all modules
+- 🛡️ **Better Resource Management** - Context managers for DB connections
+- 🔧 **Easier Maintenance** - Adding new features now requires 1 change, not 6+
+
 ### Quick Start V3:
 ```bash
 # Install dependencies (one-time)
@@ -80,6 +87,13 @@ Ultra-Planning V2 is a revolutionary memory system for AI agents that combines:
 - Patterns, failures, decisions, gotchas all documented
 - Pre-task intelligence injection
 - Never repeat the same error twice
+
+### 7. **Clean, Maintainable Codebase** (NEW!)
+- Centralized caching layer for all file operations
+- DRY principles: Zero code duplication across 13 modules
+- Context managers ensure proper resource cleanup
+- Single source of truth for configuration and patterns
+- Helper functions for common operations (DB, subprocess, file I/O)
 
 ---
 
@@ -301,7 +315,7 @@ python3 scripts/tldr-code.py src/ --recursive
 
 ## 📊 Benefits: Before vs After
 
-| Metric | Without Ultra-Planning | With V2 | Improvement |
+| Metric | Without Ultra-Planning | With V3 | Improvement |
 |--------|----------------------|---------|-------------|
 | Knowledge capture | Manual (10 min) | Automatic (15 sec) | **40x faster** |
 | Context format | Markdown (2,500 tokens) | YAML (250 tokens) | **10x savings** |
@@ -309,6 +323,7 @@ python3 scripts/tldr-code.py src/ --recursive
 | Search capability | Keyword grep | Semantic vectors | **Finds hidden connections** |
 | Cross-device memory | None | Session registry | **Seamless** |
 | Error repetition | Common | Never | **Compounding quality** |
+| Code maintainability | Duplicated logic | DRY principles | **239 lines removed** |
 | Session 10 speed | Baseline | 3-5x faster | **Exponential growth** |
 
 ---

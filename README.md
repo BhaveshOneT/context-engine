@@ -419,13 +419,42 @@ if action_failed:
 
 ## 🤝 Credits & Inspiration
 
-This system is built on proven concepts:
+This project builds upon and combines ideas from several excellent open-source projects:
 
-- **Filesystem-based Memory** - Manus AI context engineering principles
-- **Knowledge Compounding** - Continuous learning and pattern extraction
-- **Semantic Search** - BGE-large embeddings (BAAI)
-- **Code Analysis** - Tree-sitter structural analysis
-- **Clean Code Principles** - DRY, single source of truth, context managers
+### Core Inspiration
+
+- **[planning-with-files](https://github.com/OthmanAdi/planning-with-files)** by [@OthmanAdi](https://github.com/OthmanAdi)
+  - Manus AI-style filesystem-based state management for AI agents
+  - The foundation for our active/task_plan.md approach
+
+- **[Continuous-Claude](https://github.com/grapeot/Continuous-Claude)** (v3) by [@grapeot](https://github.com/grapeot) (formerly parcadei)
+  - MIT License | 3.1k+ ⭐
+  - Daemon-based learning extraction, vector embeddings, YAML handoffs, TLDR code analysis
+  - Major inspiration for automation and semantic search features
+
+- **compound-engineering** philosophy (One Thousand GmbH)
+  - Knowledge accumulation and compounding intelligence principles
+  - Never forgetting, always learning approach
+
+### Technical Components
+
+- **[BGE-large embeddings](https://huggingface.co/BAAI/bge-large-en-v1.5)** by Beijing Academy of Artificial Intelligence (BAAI)
+  - State-of-the-art semantic similarity for knowledge retrieval
+
+- **[Tree-sitter](https://tree-sitter.github.io/tree-sitter/)**
+  - Incremental parsing system for structural code analysis
+  - Enables our 95% token-saving TLDR feature
+
+- **[Manus AI](https://www.manus.app/)** context engineering principles
+  - Research on agent memory and state persistence
+  - Meta acquired for ~$2B, validating the filesystem-based approach
+
+### Our Contributions
+
+- **Unified Architecture** - Combined all these concepts into a cohesive system
+- **Codebase Refactoring** - DRY principles, centralized caching, single source of truth
+- **Claude Code Integration** - Zero-cost pattern extraction using existing subscriptions
+- **Two-stage Reranking** - Enhanced search with keyword + semantic ranking
 
 ---
 

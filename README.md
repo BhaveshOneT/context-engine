@@ -432,10 +432,6 @@ This project builds upon and combines ideas from several excellent open-source p
   - Daemon-based learning extraction, vector embeddings, YAML handoffs, TLDR code analysis
   - Major inspiration for automation and semantic search features
 
-- **compound-engineering** philosophy (One Thousand GmbH)
-  - Knowledge accumulation and compounding intelligence principles
-  - Never forgetting, always learning approach
-
 ### Technical Components
 
 - **[BGE-large embeddings](https://huggingface.co/BAAI/bge-large-en-v1.5)** by Beijing Academy of Artificial Intelligence (BAAI)

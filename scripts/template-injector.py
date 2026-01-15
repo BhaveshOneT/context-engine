@@ -11,6 +11,11 @@ from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Optional
 
+# Add scripts dir to path for imports
+sys.path.insert(0, str(Path(__file__).parent))
+import config_loader
+import cache_manager
+
 # Get project memory directory
 MEMORY_DIR = Path(__file__).parent.parent
 KNOWLEDGE_DIR = MEMORY_DIR / 'knowledge'
@@ -19,26 +24,99 @@ ARCHIVE_DIR = MEMORY_DIR / 'archive'
 
 
 def extract_keywords(task_name: str) -> List[str]:
-    """Extract keywords from task name for searching"""
-    # Split on common separators
-    keywords = re.split(r'[-_\s/\\]+', task_name.lower())
+    """
+    Extract keywords from task name using TF-IDF for better relevance
 
-    # Remove common words
-    stop_words = {'add', 'create', 'update', 'fix', 'the', 'a', 'an', 'to', 'for', 'in', 'on', 'with'}
-    keywords = [k for k in keywords if k and k not in stop_words]
+    Falls back to simple splitting if scikit-learn not available.
+    """
+    # Try TF-IDF extraction (more accurate)
+    try:
+        from sklearn.feature_extraction.text import TfidfVectorizer
 
-    return keywords
+        # Load knowledge base for TF-IDF context
+        knowledge_corpus = []
+        knowledge_files = [
+            KNOWLEDGE_DIR / 'patterns.md',
+            KNOWLEDGE_DIR / 'failures.md',
+            KNOWLEDGE_DIR / 'decisions.md'
+        ]
+
+        for file_path in knowledge_files:
+            if file_path.exists():
+                content = cache_manager.load_file_cached(str(file_path))
+                knowledge_corpus.append(content)
+
+        if not knowledge_corpus:
+            raise ValueError("No knowledge base available for TF-IDF")
+
+        # Add task name to corpus
+        knowledge_corpus.append(task_name)
+
+        # Create TF-IDF vectorizer
+        vectorizer = TfidfVectorizer(
+            max_features=10,
+            stop_words='english',
+            ngram_range=(1, 2),  # Include bigrams (e.g., "jwt token")
+            min_df=1
+        )
+
+        # Fit and transform
+        tfidf_matrix = vectorizer.fit_transform(knowledge_corpus)
+
+        # Get feature names (keywords)
+        feature_names = vectorizer.get_feature_names_out()
+
+        # Get TF-IDF scores for task name (last document)
+        task_tfidf = tfidf_matrix[-1].toarray()[0]
+
+        # Get top keywords with non-zero scores
+        keyword_scores = [(feature_names[i], task_tfidf[i])
+                          for i in range(len(feature_names))
+                          if task_tfidf[i] > 0]
+
+        # Sort by score and extract keywords
+        keyword_scores.sort(key=lambda x: x[1], reverse=True)
+        tfidf_keywords = [kw for kw, score in keyword_scores[:10]]
+
+        # Also include simple split keywords for coverage
+        simple_keywords = re.split(r'[-_\s/\\]+', task_name.lower())
+        stop_words = {'add', 'create', 'update', 'fix', 'the', 'a', 'an', 'to', 'for', 'in', 'on', 'with'}
+        simple_keywords = [k for k in simple_keywords if k and k not in stop_words]
+
+        # Combine (dedupe while preserving order)
+        all_keywords = []
+        seen = set()
+        for kw in tfidf_keywords + simple_keywords:
+            if kw not in seen:
+                all_keywords.append(kw)
+                seen.add(kw)
+
+        return all_keywords[:15]  # Top 15 keywords
+
+    except (ImportError, ValueError):
+        # Fallback to simple splitting
+        keywords = re.split(r'[-_\s/\\]+', task_name.lower())
+
+        # Remove common words
+        stop_words = {'add', 'create', 'update', 'fix', 'the', 'a', 'an', 'to', 'for', 'in', 'on', 'with'}
+        keywords = [k for k in keywords if k and k not in stop_words]
+
+        return keywords
 
 
-def search_patterns(keywords: List[str], threshold: float = 0.3) -> List[Dict]:
+def search_patterns(keywords: List[str], threshold: float = None) -> List[Dict]:
     """Search knowledge/patterns.md for relevant patterns"""
+    # Load threshold from config if not provided
+    if threshold is None:
+        threshold = config_loader.get('template_injection.relevance_threshold', 0.3)
+
     patterns_file = KNOWLEDGE_DIR / 'patterns.md'
 
     if not patterns_file.exists():
         return []
 
-    with open(patterns_file, 'r') as f:
-        content = f.read()
+    # Use cached file loading (avoid redundant reads)
+    content = cache_manager.load_file_cached(str(patterns_file))
 
     # Split into sections (## Pattern: ...)
     sections = re.split(r'\n## Pattern:', content)
@@ -64,15 +142,19 @@ def search_patterns(keywords: List[str], threshold: float = 0.3) -> List[Dict]:
     return results[:3]  # Top 3
 
 
-def search_failures(keywords: List[str], threshold: float = 0.3) -> List[Dict]:
+def search_failures(keywords: List[str], threshold: float = None) -> List[Dict]:
     """Search knowledge/failures.md for relevant errors to avoid"""
+    # Load threshold from config if not provided
+    if threshold is None:
+        threshold = config_loader.get('template_injection.relevance_threshold', 0.3)
+
     failures_file = KNOWLEDGE_DIR / 'failures.md'
 
     if not failures_file.exists():
         return []
 
-    with open(failures_file, 'r') as f:
-        content = f.read()
+    # Use cached file loading (avoid redundant reads)
+    content = cache_manager.load_file_cached(str(failures_file))
 
     # Split into sections (## Error: ...)
     sections = re.split(r'\n## Error:', content)
@@ -95,15 +177,19 @@ def search_failures(keywords: List[str], threshold: float = 0.3) -> List[Dict]:
     return results[:3]
 
 
-def search_decisions(keywords: List[str], threshold: float = 0.3) -> List[Dict]:
+def search_decisions(keywords: List[str], threshold: float = None) -> List[Dict]:
     """Search knowledge/decisions.md for relevant architectural choices"""
+    # Load threshold from config if not provided
+    if threshold is None:
+        threshold = config_loader.get('template_injection.relevance_threshold', 0.3)
+
     decisions_file = KNOWLEDGE_DIR / 'decisions.md'
 
     if not decisions_file.exists():
         return []
 
-    with open(decisions_file, 'r') as f:
-        content = f.read()
+    # Use cached file loading (avoid redundant reads)
+    content = cache_manager.load_file_cached(str(decisions_file))
 
     # Split into sections (## Decision: ...)
     sections = re.split(r'\n## Decision:', content)
@@ -153,8 +239,8 @@ def extract_phases_from_archived_task(archive_dir: Path) -> List[str]:
     if not task_plan.exists():
         return []
 
-    with open(task_plan, 'r') as f:
-        content = f.read()
+    # Use cached file loading
+    content = cache_manager.load_file_cached(str(task_plan))
 
     # Find phases section
     phases_match = re.search(r'## Phases\n(.+?)(?=\n##|\Z)', content, re.DOTALL)
@@ -304,8 +390,8 @@ def inject_intelligence(task_name: str) -> None:
         print(f"❌ Error: {task_plan_path} not found. Run init-session.sh first!")
         sys.exit(1)
 
-    with open(task_plan_path, 'r') as f:
-        template = f.read()
+    # Use cached file loading
+    template = cache_manager.load_file_cached(str(task_plan_path))
 
     # Inject patterns
     patterns_text = format_patterns_for_template(patterns)

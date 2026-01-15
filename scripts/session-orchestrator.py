@@ -11,7 +11,8 @@ import subprocess
 import signal
 from pathlib import Path
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Tuple
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Get project memory directory
 MEMORY_DIR = Path(__file__).parent.parent
@@ -27,6 +28,42 @@ class SessionOrchestrator:
         self.file_watcher_process: Optional[subprocess.Popen] = None
         self.task_name: Optional[str] = None
 
+    def _inject_templates_task(self, task_name: str) -> Tuple[bool, str]:
+        """Run template injection (for parallel execution)"""
+        try:
+            result = subprocess.run(
+                [sys.executable, str(SCRIPTS_DIR / 'template-injector.py'), task_name],
+                cwd=MEMORY_DIR,
+                capture_output=True,
+                text=True
+            )
+
+            if result.returncode == 0:
+                return (True, result.stdout)
+            else:
+                return (False, "Template injection had issues (continuing anyway)")
+        except Exception as e:
+            return (False, f"Template injection failed: {e}")
+
+    def _check_embeddings_task(self) -> Tuple[bool, str]:
+        """Check embeddings status (for parallel execution)"""
+        try:
+            result = subprocess.run(
+                [sys.executable, str(SCRIPTS_DIR / 'auto-embedder.py'), '--status'],
+                cwd=MEMORY_DIR,
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+
+            if 'Needs embedding' in result.stdout:
+                return (False, "Embeddings need update (run auto-embedder.py --embed)")
+            else:
+                return (True, "Embeddings up to date")
+        except:
+            return (False, "Auto-embedder not available (install: pip install sentence-transformers numpy)")
+
+
     def start_session(self, task_name: str):
         """Start session with full automation"""
         self.task_name = task_name
@@ -38,40 +75,30 @@ class SessionOrchestrator:
         print(f"📝 Task: {task_name}")
         print()
 
-        # 1. Inject intelligence into templates
-        print("📚 Step 1/4: Injecting past knowledge...")
-        try:
-            result = subprocess.run(
-                [sys.executable, str(SCRIPTS_DIR / 'template-injector.py'), task_name],
-                cwd=MEMORY_DIR,
-                capture_output=True,
-                text=True
-            )
+        # Run Steps 1 & 2 in parallel (independent tasks)
+        print("⚡ Running startup tasks in parallel...")
+        print()
 
-            if result.returncode == 0:
-                print(result.stdout)
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            # Submit both tasks
+            future_templates = executor.submit(self._inject_templates_task, task_name)
+            future_embeddings = executor.submit(self._check_embeddings_task)
+
+            # Wait for template injection (Step 1)
+            print("📚 Step 1/4: Injecting past knowledge...")
+            success, message = future_templates.result()
+            if success:
+                print(message)
             else:
-                print(f"   ⚠️  Template injection had issues (continuing anyway)")
-        except Exception as e:
-            print(f"   ⚠️  Template injection failed: {e}")
+                print(f"   ⚠️  {message}")
 
-        # 2. Check embeddings status
-        print("🔮 Step 2/4: Checking semantic search readiness...")
-        try:
-            result = subprocess.run(
-                [sys.executable, str(SCRIPTS_DIR / 'auto-embedder.py'), '--status'],
-                cwd=MEMORY_DIR,
-                capture_output=True,
-                text=True,
-                timeout=5
-            )
-
-            if 'Needs embedding' in result.stdout:
-                print("   ⚠️  Embeddings need update (run auto-embedder.py --embed)")
+            # Wait for embeddings check (Step 2)
+            print("🔮 Step 2/4: Checking semantic search readiness...")
+            success, message = future_embeddings.result()
+            if success:
+                print(f"   ✓ {message}")
             else:
-                print("   ✓ Embeddings up to date")
-        except:
-            print("   ℹ️  Auto-embedder not available (install: pip install sentence-transformers numpy)")
+                print(f"   ⚠️  {message}")
 
         print()
 

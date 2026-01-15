@@ -13,6 +13,11 @@ from datetime import datetime
 from collections import defaultdict
 from typing import List, Dict, Set
 
+# Add scripts dir to path for imports
+sys.path.insert(0, str(Path(__file__).parent))
+import config_loader
+import cache_manager
+
 # Optional: semantic similarity for cross-references
 try:
     import numpy as np
@@ -28,23 +33,23 @@ VECTORS_DIR = KNOWLEDGE_DIR / 'vectors'
 
 
 def count_sections(file_path: Path, pattern: str) -> int:
-    """Count sections in a markdown file"""
+    """Count sections in a markdown file (with caching)"""
     if not file_path.exists():
         return 0
 
-    with open(file_path, 'r') as f:
-        content = f.read()
+    # Use cached file loading
+    content = cache_manager.load_file_cached(str(file_path))
 
     return len(re.findall(pattern, content, re.IGNORECASE))
 
 
 def extract_section_titles(file_path: Path, pattern: str) -> List[str]:
-    """Extract section titles from markdown file"""
+    """Extract section titles from markdown file (with caching)"""
     if not file_path.exists():
         return []
 
-    with open(file_path, 'r') as f:
-        content = f.read()
+    # Use cached file loading
+    content = cache_manager.load_file_cached(str(file_path))
 
     titles = []
     for match in re.finditer(pattern + r'(.+)', content, re.IGNORECASE):
@@ -96,8 +101,8 @@ def build_keyword_index() -> Dict[str, List[tuple]]:
         if not file_path.exists():
             continue
 
-        with open(file_path, 'r') as f:
-            content = f.read()
+        # Use cached file loading
+        content = cache_manager.load_file_cached(str(file_path))
 
         # Split into sections
         sections = re.split(pattern, content)
@@ -116,8 +121,12 @@ def build_keyword_index() -> Dict[str, List[tuple]]:
     return keyword_index
 
 
-def find_cross_references(threshold: float = 0.75) -> List[Dict]:
+def find_cross_references(threshold: float = None) -> List[Dict]:
     """Find related entries using semantic similarity"""
+    # Load threshold from config if not provided
+    if threshold is None:
+        threshold = config_loader.get('semantic_search.cross_reference_threshold', 0.75)
+
     if not NUMPY_AVAILABLE:
         return []
 

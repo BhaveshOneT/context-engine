@@ -54,14 +54,20 @@ template_injection:
 
 # Semantic Search Settings
 semantic_search:
-  # Model for embeddings
-  model: 'BAAI/bge-large-en-v1.5'
+  # Model for embeddings (upgraded to 2024 model for better accuracy)
+  model: 'BAAI/bge-m3'
 
   # Similarity threshold for cross-references (0.0-1.0)
   cross_reference_threshold: 0.75
 
   # Maximum cross-references to show
   max_cross_references: 10
+
+  # Reranking settings (two-stage search)
+  reranker_enabled: true
+  reranker_model: 'cross-encoder/ms-marco-MiniLM-L-6-v2'
+  reranker_top_k: 50  # Candidates from vector search
+  final_top_k: 10     # Final results after reranking
 
 # Extraction Triggers
 extraction:

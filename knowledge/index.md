@@ -1,6 +1,6 @@
 # Knowledge Index
 
-**Last updated:** 2026-01-14 13:53
+**Last updated:** 2026-01-15 10:10
 **Auto-generated** by knowledge-indexer.py _(do not edit manually)_
 
 ---
@@ -8,10 +8,10 @@
 ## Statistics
 
 - **Patterns documented:** 1
-- **Failures prevented:** 0
+- **Failures prevented:** 2
 - **Decisions recorded:** 1
 - **Gotchas tracked:** 1
-- **Total knowledge entries:** 3
+- **Total knowledge entries:** 5
 
 ---
 
@@ -31,68 +31,62 @@
 
 ## Most Common Keywords
 
-- **below** (1 in decisions.md, 1 in gotchas.md, 1 in patterns.md)
+- **line** (1 in decisions.md, 1 in failures.md, 1 in gotchas.md, 1 in patterns.md)
 - **links** (1 in decisions.md, 1 in gotchas.md, 1 in patterns.md)
-- **context** (1 in decisions.md, 1 in gotchas.md, 1 in patterns.md)
-- **patterns** (1 in decisions.md, 1 in gotchas.md, 1 in patterns.md)
 - **added** (1 in decisions.md, 1 in gotchas.md, 1 in patterns.md)
-- **line** (1 in decisions.md, 1 in gotchas.md, 1 in patterns.md)
 - **related** (1 in decisions.md, 1 in gotchas.md, 1 in patterns.md)
+- **below** (1 in decisions.md, 1 in gotchas.md, 1 in patterns.md)
+- **patterns** (1 in decisions.md, 1 in gotchas.md, 1 in patterns.md)
+- **context** (1 in decisions.md, 1 in gotchas.md, 1 in patterns.md)
 - **yyyy** (1 in decisions.md, 1 in gotchas.md, 1 in patterns.md)
-- **gotchas** (1 in gotchas.md, 1 in patterns.md)
+- **solution** (2 in failures.md, 1 in gotchas.md)
+- **file** (1 in failures.md, 1 in patterns.md)
 - **decisions** (1 in decisions.md, 1 in patterns.md)
 - **times** (1 in gotchas.md, 1 in patterns.md)
-- **failures** (1 in decisions.md, 1 in gotchas.md)
+- **gotchas** (1 in gotchas.md, 1 in patterns.md)
+- **captured** (2 in failures.md)
+- **symptom** (2 in failures.md)
+- **last** (2 in failures.md)
+- **fixed** (2 in failures.md)
+- **capture** (2 in failures.md)
+- **fill** (2 in failures.md)
+- **error** (2 in failures.md)
+- **once** (2 in failures.md)
+- **status** (2 in failures.md)
+- **raise** (2 in failures.md)
+- **valueerror** (2 in failures.md)
+- **command** (2 in failures.md)
+- **fingerprint** (2 in failures.md)
+- **call** (2 in failures.md)
+- **python3** (2 in failures.md)
+- **traceback** (2 in failures.md)
+- **stack** (2 in failures.md)
+- **test** (2 in failures.md)
+- **needs** (2 in failures.md)
+- **resolve** (2 in failures.md)
+- **detected** (2 in failures.md)
+- **add** (2 in failures.md)
+- **most** (2 in failures.md)
+- **auto** (2 in failures.md)
+- **recent** (2 in failures.md)
+- **2026** (2 in failures.md)
+- **trace** (2 in failures.md)
 - **reason** (1 in decisions.md, 1 in gotchas.md)
 - **handle** (1 in decisions.md, 1 in gotchas.md)
-- **explanation** (1 in patterns.md)
-- **implementation** (1 in patterns.md)
-- **detail** (1 in patterns.md)
-- **key** (1 in patterns.md)
-- **name** (1 in patterns.md)
-- **files** (1 in patterns.md)
-- **paths** (1 in patterns.md)
-- **works** (1 in patterns.md)
-- **successfully** (1 in patterns.md)
-- **here** (1 in patterns.md)
-- **file** (1 in patterns.md)
-- **language** (1 in patterns.md)
-- **relevant** (1 in patterns.md)
-- **established** (1 in patterns.md)
-- **example** (1 in patterns.md)
+- **failures** (1 in decisions.md, 1 in gotchas.md)
 - **code** (1 in patterns.md)
-- **alternatives** (1 in decisions.md)
-- **date** (1 in decisions.md)
-- **solving** (1 in decisions.md)
-- **limitation** (1 in decisions.md)
-- **benefit** (1 in decisions.md)
-- **mitigation** (1 in decisions.md)
-- **problem** (1 in decisions.md)
-- **applicable** (1 in decisions.md)
-- **offs** (1 in decisions.md)
-- **decided** (1 in decisions.md)
-- **con** (1 in decisions.md)
-- **pro** (1 in decisions.md)
-- **chosen** (1 in decisions.md)
-- **commit** (1 in decisions.md)
-- **title** (1 in decisions.md)
-- **trade** (1 in decisions.md)
-- **git** (1 in decisions.md)
-- **rationale** (1 in decisions.md)
-- **rejected** (1 in decisions.md)
-- **downsides** (1 in decisions.md)
+- **key** (1 in patterns.md)
+- **successfully** (1 in patterns.md)
+- **relevant** (1 in patterns.md)
+- **example** (1 in patterns.md)
+- **paths** (1 in patterns.md)
+- **language** (1 in patterns.md)
 
 ---
 
 ## Cross-References (Related Entries)
 
-- **patterns.md** ↔️ **gotchas.md** (84% similar)
-  - [Name]
-**Established:** YYYY-MM-DD
-**Used successfully:** X 
-  - [Brief Description]
-**Discovered:** YYYY-MM-DD
-**Occurrences
+_Run auto-embedder.py to enable semantic cross-references_
 
 ---
 

@@ -41,3 +41,39 @@ When you encounter an error:
 ---
 
 <!-- Failures will be added below this line -->
+
+## Error: [Auto-Detected] Traceback (most recent call last):
+**Auto-Captured:** 2026-01-15 09:42:25
+**Symptom:** Traceback (most recent call last):
+**Command:** `python3 -c raise ValueError('Test error for capture')`
+**Stack Trace:**
+```
+Traceback (most recent call last):
+
+```
+**Status:** ⚠️ Needs solution (add solution once fixed)
+**Solution:** (fill this in when you resolve the error)
+
+---
+**Fingerprint:** `[fp:def5a93cab7c]`
+
+---
+
+## Error: [Auto-Detected] Test error for capture
+**Auto-Captured:** 2026-01-15 09:42:25
+**Symptom:** Test error for capture
+**Command:** `python3 -c raise ValueError('Test error for capture')`
+**Stack Trace:**
+```
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+ValueError: Test error for capture
+
+```
+**Status:** ⚠️ Needs solution (add solution once fixed)
+**Solution:** (fill this in when you resolve the error)
+
+---
+**Fingerprint:** `[fp:cc44c2445eb6]`
+
+---

@@ -97,10 +97,62 @@ def extract_stack_trace(lines: List[str], error_line_index: int) -> List[str]:
 
 
 def generate_error_id(symptom: str) -> str:
-    """Generate a short ID for the error"""
+    """Generate a short ID for the error (backward compatible)"""
     # Take first few words and make them a slug
     words = re.findall(r'\w+', symptom.lower())[:4]
     return '-'.join(words)
+
+
+def generate_error_fingerprint(symptom: str, stack_trace: str = "") -> str:
+    """
+    Generate semantic fingerprint for error deduplication
+
+    Normalizes error details to detect duplicates even with different:
+    - Timestamps
+    - File paths
+    - Line numbers
+    - Variable names
+
+    Returns: 12-character hash for deduplication
+    """
+    import hashlib
+
+    # Normalize symptom (remove variable parts)
+    normalized = symptom.lower()
+
+    # Remove timestamps (various formats)
+    normalized = re.sub(r'\d{4}-\d{2}-\d{2}', 'DATE', normalized)
+    normalized = re.sub(r'\d{2}:\d{2}:\d{2}', 'TIME', normalized)
+    normalized = re.sub(r'\d+ms', 'NUMms', normalized)
+
+    # Remove file paths
+    normalized = re.sub(r'/[^\s:]+/', '/PATH/', normalized)
+    normalized = re.sub(r'[A-Z]:[^\s:]+', 'PATH', normalized)  # Windows paths
+
+    # Remove line numbers
+    normalized = re.sub(r':\d+:', ':LINE:', normalized)
+    normalized = re.sub(r'line \d+', 'line NUM', normalized)
+
+    # Remove memory addresses
+    normalized = re.sub(r'0x[0-9a-fA-F]+', '0xADDR', normalized)
+
+    # Extract stack trace signature (first 3 frames, normalized)
+    stack_sig = ""
+    if stack_trace:
+        stack_lines = stack_trace.split('\n')[:3]  # First 3 frames
+        for line in stack_lines:
+            # Remove file paths and line numbers from stack
+            normalized_line = re.sub(r'/[^\s:]+/', '', line)
+            normalized_line = re.sub(r':\d+', '', normalized_line)
+            stack_sig += normalized_line.strip()
+
+    # Combine normalized symptom and stack signature
+    combined = normalized + stack_sig
+
+    # Generate MD5 hash and take first 12 characters
+    fingerprint = hashlib.md5(combined.encode()).hexdigest()[:12]
+
+    return fingerprint
 
 
 def format_error_for_failures_md(error_data: Dict) -> str:
@@ -122,29 +174,35 @@ def format_error_for_failures_md(error_data: Dict) -> str:
 
 
 def add_to_failures_md(error_data: Dict) -> None:
-    """Add error to knowledge/failures.md"""
+    """Add error to knowledge/failures.md with fingerprint-based deduplication"""
     failures_file = KNOWLEDGE_DIR / 'failures.md'
 
-    # Check if already documented (avoid duplicates within same minute)
-    error_id = generate_error_id(error_data['symptom'])
+    # Generate semantic fingerprint for deduplication
+    fingerprint = generate_error_fingerprint(
+        error_data['symptom'],
+        error_data.get('stack_trace', '')
+    )
 
+    # Check if this exact error (by fingerprint) already exists
     if failures_file.exists():
         with open(failures_file, 'r') as f:
             content = f.read()
 
-        # Check for very similar recent errors (same symptom in last section)
-        recent_sections = content.split('---')[-5:]  # Last 5 errors
-        if any(error_id in section.lower() for section in recent_sections):
-            print(f"   (Similar error already captured recently, skipping duplicate)")
+        # Check for fingerprint in ENTIRE file (not just last 5)
+        if f'[fp:{fingerprint}]' in content:
+            print(f"   (Duplicate error detected [fp:{fingerprint}], skipping)")
             return
 
-    # Append to file
+    # Append to file with fingerprint metadata
     error_text = format_error_for_failures_md(error_data)
+
+    # Add fingerprint to error metadata
+    error_text = error_text.rstrip() + f"\n**Fingerprint:** `[fp:{fingerprint}]`\n\n---\n"
 
     with open(failures_file, 'a') as f:
         f.write(error_text)
 
-    print(f"✅ Error auto-captured to knowledge/failures.md")
+    print(f"✅ Error auto-captured [fp:{fingerprint}] to knowledge/failures.md")
 
 
 def add_to_error_log_table(error_data: Dict) -> None:

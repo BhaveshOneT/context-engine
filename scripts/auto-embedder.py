@@ -13,6 +13,11 @@ from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Optional
 
+# Add scripts dir to path for imports
+sys.path.insert(0, str(Path(__file__).parent))
+import config_loader
+import cache_manager
+
 try:
     from sentence_transformers import SentenceTransformer
     import numpy as np
@@ -27,17 +32,17 @@ MEMORY_DIR = Path(__file__).parent.parent
 KNOWLEDGE_DIR = MEMORY_DIR / 'knowledge'
 VECTORS_DIR = KNOWLEDGE_DIR / 'vectors'
 
-# Model for embeddings
-MODEL_NAME = 'BAAI/bge-large-en-v1.5'
+# Model for embeddings (load from config)
+MODEL_NAME = config_loader.get('semantic_search.model', 'BAAI/bge-large-en-v1.5')
 
 
 def hash_file(file_path: Path) -> str:
-    """Generate SHA256 hash of file contents"""
+    """Generate SHA256 hash of file contents (cached)"""
     if not file_path.exists():
         return ""
 
-    with open(file_path, 'rb') as f:
-        return hashlib.sha256(f.read()).hexdigest()
+    # Use cached hash function (avoid recomputing)
+    return cache_manager.hash_file_cached(str(file_path))
 
 
 def load_hash_cache() -> Dict[str, str]:
@@ -63,12 +68,12 @@ def save_hash_cache(cache: Dict[str, str]):
 
 
 def parse_sections(file_path: Path) -> List[Dict]:
-    """Parse markdown file into sections"""
+    """Parse markdown file into sections (with caching)"""
     if not file_path.exists():
         return []
 
-    with open(file_path, 'r') as f:
-        content = f.read()
+    # Use cached file loading
+    content = cache_manager.load_file_cached(str(file_path))
 
     # Determine section pattern based on file type
     if 'patterns' in file_path.name:
@@ -181,12 +186,12 @@ def auto_embed_all(force: bool = False):
     print("🔮 Auto-Embedder: Starting...")
     print()
 
-    # Load model
+    # Load model (with caching - 5-10s savings on subsequent runs!)
     print(f"📦 Loading model: {MODEL_NAME}")
-    print("   (First run will download ~1GB, subsequent runs are fast)")
+    print("   (First run will download ~1GB, subsequent runs are instant with cache)")
 
     try:
-        model = SentenceTransformer(MODEL_NAME)
+        model = cache_manager.load_model_cached(MODEL_NAME)
     except Exception as e:
         print(f"❌ Error loading model: {e}")
         sys.exit(1)

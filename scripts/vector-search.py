@@ -17,6 +17,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 import config_loader
 import cache_manager
+from observation_types import ObservationType, ObservationClassifier, get_type_emoji
 
 # Try to import reranker (optional)
 try:
@@ -114,7 +115,7 @@ def generate_embeddings():
     print("\n✅ Embeddings generated and saved")
 
 
-def search_semantic(query, threshold=0.7, use_reranking=False, top_k=10):
+def search_semantic(query, threshold=0.7, use_reranking=False, top_k=10, obs_type=None):
     """
     Search knowledge base using semantic similarity
 
@@ -123,11 +124,13 @@ def search_semantic(query, threshold=0.7, use_reranking=False, top_k=10):
         threshold: Minimum similarity score (for vector search)
         use_reranking: Enable two-stage search with reranking (more accurate)
         top_k: Number of results to return
+        obs_type: Filter by observation type (decision, bugfix, feature, etc.)
 
     Two-stage search (when use_reranking=True):
         Stage 1: Fast vector search → top 50 candidates
         Stage 2: Cross-encoder reranking → top 10 precise results
     """
+    classifier = ObservationClassifier()
     if not VECTOR_DIR.exists():
         print("❌ No embeddings found. Run with --generate first")
         return
@@ -136,6 +139,8 @@ def search_semantic(query, threshold=0.7, use_reranking=False, top_k=10):
     query_embedding = model.encode(query)
 
     print(f"\n🔍 Searching for: \"{query}\"")
+    if obs_type:
+        print(f"Filter: {obs_type} observation type")
     if use_reranking and RERANKER_AVAILABLE:
         print(f"Mode: Two-stage search (vector + reranking)")
         rerank_top_k = config_loader.get('semantic_search.reranker_top_k', 50)
@@ -163,9 +168,25 @@ def search_semantic(query, threshold=0.7, use_reranking=False, top_k=10):
             )
 
             if similarity >= threshold:
+                # Classify observation type
+                section_obs_type = classifier.classify(
+                    f"{section['header']} {section['content'][:200]}",
+                    f"{file_type}.md"
+                )
+
+                # Apply type filter if specified
+                if obs_type and obs_type != 'all':
+                    try:
+                        filter_type = ObservationType.from_string(obs_type)
+                        if section_obs_type != filter_type:
+                            continue
+                    except:
+                        pass
+
                 results.append(
                     {
                         "type": file_type,
+                        "obs_type": section_obs_type,
                         "header": section["header"],
                         "content": section["content"],
                         "similarity": similarity,
@@ -202,8 +223,15 @@ def search_semantic(query, threshold=0.7, use_reranking=False, top_k=10):
     # Display results
     print("\n")
     for i, result in enumerate(results, 1):
-        icon = {"patterns": "✓", "failures": "⚠️", "decisions": "🤔", "gotchas": "💡"}
-        print(f"{i}. {icon.get(result['type'], '•')} {result['type'].upper()}")
+        # Use observation type emoji if available
+        if 'obs_type' in result:
+            type_emoji = get_type_emoji(result['obs_type'])
+            type_label = result['obs_type'].value.upper()
+        else:
+            icon = {"patterns": "✓", "failures": "⚠️", "decisions": "🤔", "gotchas": "💡"}
+            type_emoji = icon.get(result['type'], '•')
+            type_label = result['type'].upper()
+        print(f"{i}. {type_emoji} [{type_label}] {result['type']}")
 
         # Show both vector and rerank scores if available
         if 'rerank_score' in result:
@@ -231,15 +259,21 @@ def main():
         print(f"  {sys.argv[0]} \"search query\"          # Semantic search")
         print(f"  {sys.argv[0]} \"query\" --rerank         # Two-stage search (more accurate)")
         print(f"  {sys.argv[0]} \"query\" --threshold 0.6  # Custom threshold")
+        print(f"  {sys.argv[0]} \"query\" --type decision  # Filter by observation type")
         print()
         print("Options:")
         print("  --rerank        Enable two-stage search (vector + cross-encoder)")
         print("  --threshold N   Similarity threshold (0.0-1.0, default: 0.7)")
         print("  --top-k N       Number of results (default: 10)")
+        print("  --type TYPE     Filter by observation type")
+        print()
+        print("Observation Types:")
+        print("  decision, bugfix, feature, refactor, discovery, change")
         print()
         print("Examples:")
         print("  ./ce vsearch \"jwt authentication\"")
         print("  ./ce vsearch \"jwt authentication\" --rerank")
+        print("  ./ce vsearch \"fix errors\" --type bugfix")
         sys.exit(1)
 
     if sys.argv[1] == "--generate":
@@ -249,6 +283,7 @@ def main():
         threshold = 0.7
         use_reranking = False
         top_k = 10
+        obs_type = None
 
         if "--threshold" in sys.argv:
             idx = sys.argv.index("--threshold")
@@ -261,7 +296,11 @@ def main():
             idx = sys.argv.index("--top-k")
             top_k = int(sys.argv[idx + 1])
 
-        search_semantic(query, threshold, use_reranking, top_k)
+        if "--type" in sys.argv:
+            idx = sys.argv.index("--type")
+            obs_type = sys.argv[idx + 1]
+
+        search_semantic(query, threshold, use_reranking, top_k, obs_type)
 
 
 if __name__ == "__main__":

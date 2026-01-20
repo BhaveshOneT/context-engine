@@ -86,3 +86,12 @@ next_priorities:
   - "high: Test edge cases"
   - "medium: Add error handling"
   - "low: Update documentation"
+
+# Structured Session Summary (claude-mem inspired)
+# Generated automatically by session_summarizer.py
+session_summary:
+  request: "What the user originally asked for"
+  investigated: "Files/code/areas examined"
+  learned: "Key discoveries made"
+  completed: "What was accomplished"
+  next_steps: "Pending work or follow-ups"

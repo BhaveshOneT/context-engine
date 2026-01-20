@@ -5,42 +5,39 @@
 [![Status](https://img.shields.io/badge/status-production--ready-green)]()
 [![Token Savings](https://img.shields.io/badge/token%20savings-90--95%25-brightgreen)]()
 [![Learning](https://img.shields.io/badge/learning-automatic-blue)]()
-[![Automation](https://img.shields.io/badge/automation-95%25-purple)]()
+[![Automation](https://img.shields.io/badge/automation-100%25-purple)]()
 
 ---
 
-## 🎉 **NEW: Latest Release!**
+## 🎉 **NEW: 100% Automatic Mode!**
 
 **Context Engine** is an invisible intelligence system that learns automatically while you code.
 
+### Quick Start (One Command!):
+```bash
+./ce activate     # Start everything - that's it!
+# ... code normally ...
+./ce deactivate   # Archive & stop when done
+```
+
 ### Key Features:
-- 🤖 **95% Automated** - Minimal manual intervention required
-- ⚡ **Template Auto-Fill** - Session start: 5 min → 30 sec
-- 🔥 **Error Auto-Capture** - Errors documented automatically from terminal
-- 🧠 **Claude Code Integration** - Pattern extraction using existing subscription (zero extra API costs!)
-- 👁️ **Real-Time Monitoring** - File watcher tracks progress automatically
-- 🔮 **Always-Fresh Search** - Vector embeddings auto-update
-- 📇 **Auto-Generated Index** - Cross-references with semantic similarity
+- 🤖 **100% Automated** - Zero manual intervention required
+- ⚡ **Single Command** - `./ce activate` starts everything
+- 🌐 **Web UI Dashboard** - Browse knowledge at localhost:8765
+- 🔥 **Error Auto-Capture** - Errors documented automatically via hooks
+- 📝 **Prompt Tracking** - Every request logged for learning
+- 🧠 **Auto-Session** - Sessions created from git branch name
+- 📦 **Auto-Archive** - Sessions archived on deactivate
+- 🔮 **Semantic Search** - Vector embeddings for intelligent retrieval
 
 **[→ See Full Features Documentation](V3_FEATURES.md)**
 
-### 🎨 **Latest: Codebase Refactoring (Jan 2026)**
-- 🧹 **239 Lines Removed** - Eliminated all code duplication
-- 🎯 **Single Source of Truth** - Centralized section prefixes and patterns
-- ⚡ **Performance Boost** - Unified caching layer across all modules
-- 🛡️ **Better Resource Management** - Context managers for DB connections
-- 🔧 **Easier Maintenance** - Adding new features now requires 1 change, not 6+
-
-### Quick Start:
-```bash
-# Install dependencies (one-time)
-./scripts/install-v3.sh
-
-# Start your first V3 session
-./scripts/init-session.sh "your-task-name"
-
-# That's it! The system handles the rest 🚀
-```
+### 🎨 **Latest: Full Automation (Jan 2026)**
+- ⚡ **One-Command Activation** - `./ce activate` does everything
+- 🌐 **Web UI** - Beautiful dashboard at localhost:8765
+- 🤖 **Auto-Session Management** - Creates/archives sessions automatically
+- 🔥 **Hook Integration** - Error capture via Claude Code hooks
+- 📊 **Service Manager** - Background processes with PID tracking
 
 ---
 
@@ -147,78 +144,67 @@
 
 ## 🏃 Quick Start
 
-### 1. Installation
+### The Simple Way (Recommended)
 
-The system is already installed! Located at: `.project-memory/`
+```bash
+# One-time setup (optional - configures Claude Code hooks)
+./ce setup
 
-**Optional Dependencies** (for advanced features):
+# Start your coding session
+./ce activate
+
+# Code normally - everything is tracked automatically!
+# Check Web UI at http://localhost:8765
+
+# End your session
+./ce deactivate
+```
+
+**That's it!** The system handles:
+- ✅ Session creation (from git branch)
+- ✅ Web UI startup (port 8765)
+- ✅ Error auto-capture
+- ✅ Prompt tracking
+- ✅ Learning extraction
+- ✅ Session archival
+
+### Optional Dependencies
 
 ```bash
 # Vector search (semantic similarity)
 pip install sentence-transformers numpy
 
+# Web UI (already included)
+pip install flask
+
 # TLDR code analysis (95% token savings)
 pip install tree-sitter tree-sitter-languages
-
-# Session registry is built-in (SQLite)
-# Daemon uses shell scripts (no install needed)
 ```
 
-### 2. Initialize First Session
+### CLI Reference
 
 ```bash
-cd .project-memory
-./scripts/init-session.sh "my-first-task"
+./ce activate      # Start everything (100% automatic)
+./ce deactivate    # Archive session + stop services
+./ce status        # Show what's running
+
+./ce init <task>   # Manual session init (optional)
+./ce archive       # Manual archive (optional)
+
+./ce search <term>     # Keyword search
+./ce vsearch <term>    # Semantic search
+./ce ui                # Start Web UI only (foreground)
+./ce help              # Show all commands
 ```
 
-This creates:
-- `active/task_plan.md` - For planning phases
-- `active/context.md` - For documenting findings
-- `ledgers/CONTINUITY_active.md` - For progress tracking
+### What Happens Automatically
 
-### 3. Start Working
-
-Edit `active/task_plan.md`:
-1. Fill in your goal
-2. Define phases
-3. Document as you work
-
-**The hooks will automatically:**
-- Show past learnings at session start
-- Refresh plan before actions
-- Remind you to document errors
-- Check knowledge updates at session end
-
-### 4. Let the Daemon Learn (Optional)
-
-```bash
-# Run daemon manually (or schedule with cron)
-./scripts/daemon-extract-learnings.sh
-
-# Daemon auto-extracts when idle >5 min
-# No manual intervention needed!
-```
-
-### 5. Complete & Archive
-
-```bash
-./scripts/archive-task.sh
-
-# This moves active/ → archive/YYYY-MM-DD_task-name/
-# And creates YAML handoff for next session
-```
-
-### 6. Next Session - Start Smarter!
-
-```bash
-./scripts/init-session.sh "next-task"
-
-# Agent now has:
-# • Patterns from previous work
-# • Errors to avoid
-# • Decisions to reference
-# • Gotchas to watch for
-```
+| When | What |
+|------|------|
+| `./ce activate` | Session created from git branch, Web UI starts, hooks configured |
+| You code | Errors captured, prompts tracked, learnings extracted when idle |
+| `./ce deactivate` | Summary generated, session archived, services stopped |
+| Next session | Agent has all previous knowledge - starts smarter! |
 
 ---
 
@@ -463,6 +449,29 @@ Located in repository:
 
 ---
 
+## 🌐 Web UI
+
+The Context Engine includes a beautiful Web UI for browsing your knowledge base.
+
+**Access:** http://localhost:8765 (after running `./ce activate`)
+
+### Features
+- **Knowledge Browser** - View patterns, failures, decisions, gotchas
+- **Session History** - See past sessions and their summaries
+- **Search** - Full-text search across all knowledge
+- **Statistics** - See how your knowledge base is growing
+- **Dark Theme** - Apple-inspired minimal design
+
+### Screenshots
+
+The Web UI shows:
+- Total knowledge entries by category
+- Individual entries with full details
+- Session summaries with what was learned
+- Quick search functionality
+
+---
+
 ## 🆘 Troubleshooting
 
 ### "No knowledge found"
@@ -485,10 +494,10 @@ Located in repository:
 
 ## 📈 Next Steps
 
-1. **Start using it!** Run `./scripts/init-session.sh "your-task"`
-2. **Document as you go** - Follow templates in active/
-3. **Let daemon learn** - Run manually or schedule with cron
-4. **Watch it compound** - By session 10, you'll be 3-5x faster
+1. **Run `./ce activate`** - Everything starts automatically
+2. **Code normally** - Errors, prompts, learnings all tracked
+3. **Check Web UI** - http://localhost:8765 to see your knowledge
+4. **Run `./ce deactivate`** - Session archived, ready for next time
 
 **The more you use it, the smarter it gets. That's the magic of compounding intelligence.**
 
@@ -497,14 +506,16 @@ Located in repository:
 ## 🎉 You're Ready!
 
 ```bash
-# Start your first session
-cd .project-memory
-./scripts/init-session.sh "my-awesome-project"
+# Start your first session (one command!)
+./ce activate
 
-# Edit the plan
-vim active/task_plan.md
+# Check the Web UI
+open http://localhost:8765
 
-# Start working and watch the agent learn!
+# Code normally - everything is automatic!
+
+# When done
+./ce deactivate
 ```
 
-**Welcome to exponential AI agent intelligence. 🚀**
+**Welcome to 100% automatic AI agent intelligence. 🚀**

@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Context Engine</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --bg: #000000;
+            --bg-elevated: #1c1c1e;
+            --bg-secondary: #2c2c2e;
+            --bg-tertiary: #3a3a3c;
+            --text: #f5f5f7;
+            --text-secondary: #86868b;
+            --text-tertiary: #6e6e73;
+            --accent: #0a84ff;
+            --accent-secondary: #5e5ce6;
+            --green: #30d158;
+            --red: #ff453a;
+            --orange: #ff9f0a;
+            --separator: rgba(255,255,255,0.08);
+            --card-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.47059;
+            font-size: 17px;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        .container {
+            max-width: 980px;
+            margin: 0 auto;
+            padding: 44px 22px;
+        }
+
+        /* Header */
+        header {
+            margin-bottom: 44px;
+        }
+
+        .header-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        h1 {
+            font-size: 32px;
+            font-weight: 600;
+            letter-spacing: -0.003em;
+            color: var(--text);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--green);
+            display: inline-block;
+            margin-right: 10px;
+            opacity: 0.9;
+        }
+
+        .status-dot.offline {
+            background: var(--red);
+        }
+
+        .subtitle {
+            font-size: 17px;
+            color: var(--text-secondary);
+            font-weight: 400;
+        }
+
+        /* Stats */
+        .stats {
+            display: flex;
+            gap: 24px;
+            margin-top: 20px;
+        }
+
+        .stat {
+            font-size: 13px;
+            color: var(--text-tertiary);
+        }
+
+        .stat-value {
+            color: var(--text);
+            font-weight: 500;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* Search */
+        .search-wrapper {
+            margin-bottom: 32px;
+        }
+
+        .search-box {
+            width: 100%;
+            padding: 12px 16px;
+            font-size: 17px;
+            font-family: inherit;
+            background: var(--bg-elevated);
+            border: none;
+            border-radius: 12px;
+            color: var(--text);
+            outline: none;
+            transition: background 0.2s ease;
+        }
+
+        .search-box::placeholder {
+            color: var(--text-tertiary);
+        }
+
+        .search-box:focus {
+            background: var(--bg-secondary);
+        }
+
+        /* Navigation */
+        .nav {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 32px;
+            background: var(--bg-elevated);
+            padding: 4px;
+            border-radius: 10px;
+            width: fit-content;
+        }
+
+        .nav-item {
+            padding: 8px 16px;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            background: transparent;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .nav-item:hover {
+            color: var(--text);
+        }
+
+        .nav-item.active {
+            background: var(--bg-secondary);
+            color: var(--text);
+        }
+
+        /* Filters */
+        .filters {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            padding: 6px 12px;
+            font-size: 13px;
+            font-weight: 400;
+            color: var(--text-secondary);
+            background: transparent;
+            border: 1px solid var(--separator);
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .filter-btn:hover {
+            border-color: var(--text-tertiary);
+            color: var(--text);
+        }
+
+        .filter-btn.active {
+            background: var(--text);
+            color: var(--bg);
+            border-color: var(--text);
+        }
+
+        /* Content Area */
+        .content {
+            min-height: 400px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 80px 20px;
+            color: var(--text-secondary);
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 60px;
+            color: var(--text-tertiary);
+        }
+
+        /* Cards */
+        .card {
+            background: var(--bg-elevated);
+            border-radius: 12px;
+            margin-bottom: 12px;
+            overflow: hidden;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-1px);
+            box-shadow: var(--card-shadow);
+        }
+
+        .card-body {
+            padding: 16px 20px;
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+
+        .card-badge {
+            font-size: 11px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+            padding: 3px 8px;
+            border-radius: 4px;
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+        }
+
+        .card-badge.decision { background: rgba(94,92,230,0.2); color: #bf5af2; }
+        .card-badge.bugfix { background: rgba(255,69,58,0.2); color: #ff6961; }
+        .card-badge.feature { background: rgba(48,209,88,0.2); color: #30d158; }
+        .card-badge.refactor { background: rgba(255,159,10,0.2); color: #ffd60a; }
+        .card-badge.discovery { background: rgba(10,132,255,0.2); color: #64d2ff; }
+        .card-badge.change { background: rgba(172,142,104,0.2); color: #ac8e68; }
+
+        .card-source {
+            font-size: 12px;
+            color: var(--text-tertiary);
+        }
+
+        .card-title {
+            font-size: 15px;
+            font-weight: 500;
+            color: var(--text);
+            margin-bottom: 6px;
+        }
+
+        .card-preview {
+            font-size: 14px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        /* List Items */
+        .list-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 20px;
+            background: var(--bg-elevated);
+            border-radius: 12px;
+            margin-bottom: 8px;
+            transition: background 0.15s ease;
+        }
+
+        .list-item:hover {
+            background: var(--bg-secondary);
+        }
+
+        .list-item-main {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .list-item-title {
+            font-size: 15px;
+            font-weight: 500;
+            color: var(--text);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .list-item-subtitle {
+            font-size: 13px;
+            color: var(--text-tertiary);
+            margin-top: 2px;
+        }
+
+        .list-item-badge {
+            font-size: 12px;
+            font-weight: 500;
+            padding: 4px 10px;
+            border-radius: 6px;
+            text-transform: capitalize;
+        }
+
+        .list-item-badge.active { background: rgba(48,209,88,0.15); color: var(--green); }
+        .list-item-badge.completed { background: rgba(10,132,255,0.15); color: var(--accent); }
+        .list-item-badge.failed { background: rgba(255,69,58,0.15); color: var(--red); }
+
+        /* Input Group */
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 24px;
+        }
+
+        .input-field {
+            flex: 1;
+            padding: 12px 16px;
+            font-size: 15px;
+            font-family: inherit;
+            background: var(--bg-elevated);
+            border: none;
+            border-radius: 10px;
+            color: var(--text);
+            outline: none;
+        }
+
+        .input-field::placeholder {
+            color: var(--text-tertiary);
+        }
+
+        .btn {
+            padding: 12px 20px;
+            font-size: 15px;
+            font-weight: 500;
+            font-family: inherit;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: opacity 0.15s ease, transform 0.1s ease;
+        }
+
+        .btn:hover {
+            opacity: 0.85;
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: var(--bg-secondary);
+            color: var(--text);
+        }
+
+        .btn-danger {
+            background: var(--red);
+            color: white;
+        }
+
+        .btn.loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        /* Prompts */
+        .prompt-item {
+            padding: 16px 20px;
+            background: var(--bg-elevated);
+            border-radius: 12px;
+            margin-bottom: 8px;
+        }
+
+        .prompt-time {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            margin-bottom: 6px;
+        }
+
+        .prompt-text {
+            font-size: 15px;
+            color: var(--text);
+            line-height: 1.5;
+        }
+
+        .prompt-meta {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            margin-top: 8px;
+        }
+
+        /* Summary */
+        .summary-section {
+            margin-bottom: 20px;
+        }
+
+        .summary-label {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-tertiary);
+            margin-bottom: 8px;
+        }
+
+        .summary-content {
+            font-size: 15px;
+            color: var(--text);
+            line-height: 1.6;
+            padding: 16px 20px;
+            background: var(--bg-elevated);
+            border-radius: 12px;
+        }
+
+        /* Toast */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .toast {
+            padding: 14px 20px;
+            font-size: 14px;
+            font-weight: 500;
+            background: var(--bg-secondary);
+            color: var(--text);
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+            animation: toastIn 0.3s ease, toastOut 0.3s ease 2.7s forwards;
+        }
+
+        .toast.success { border-left: 3px solid var(--green); }
+        .toast.error { border-left: 3px solid var(--red); }
+        .toast.info { border-left: 3px solid var(--accent); }
+
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateX(20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        @keyframes toastOut {
+            to { opacity: 0; transform: translateX(20px); }
+        }
+
+        /* Keyboard hints */
+        .kbd {
+            font-size: 11px;
+            font-family: 'SF Mono', Monaco, monospace;
+            padding: 2px 6px;
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+            color: var(--text-tertiary);
+            margin-left: 8px;
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px 16px;
+            }
+
+            h1 {
+                font-size: 24px;
+            }
+
+            .stats {
+                flex-wrap: wrap;
+                gap: 12px;
+            }
+
+            .nav {
+                width: 100%;
+                overflow-x: auto;
+            }
+
+            .input-group {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="toast-container" id="toastContainer"></div>
+
+    <div class="container">
+        <header>
+            <div class="header-top">
+                <h1><span class="status-dot" id="statusDot"></span>Context Engine</h1>
+            </div>
+            <p class="subtitle">Memory browser and knowledge base</p>
+            <div class="stats" id="stats"></div>
+        </header>
+
+        <div class="search-wrapper">
+            <input type="text" class="search-box" id="search" placeholder="Search...">
+        </div>
+
+        <nav class="nav" id="nav">
+            <button class="nav-item active" data-tab="knowledge">Knowledge</button>
+            <button class="nav-item" data-tab="sessions">Sessions</button>
+            <button class="nav-item" data-tab="handoffs">Handoffs</button>
+            <button class="nav-item" data-tab="prompts">Prompts</button>
+            <button class="nav-item" data-tab="summary">Summary</button>
+        </nav>
+
+        <div class="filters" id="filters"></div>
+
+        <main class="content" id="content">
+            <div class="loading">Loading...</div>
+        </main>
+    </div>
+
+    <script>
+        // State
+        let currentTab = 'knowledge';
+        let currentFilter = 'all';
+
+        // DOM
+        const $ = (sel) => document.querySelector(sel);
+        const $$ = (sel) => document.querySelectorAll(sel);
+
+        // Toast
+        function toast(message, type = 'info') {
+            const t = document.createElement('div');
+            t.className = `toast ${type}`;
+            t.textContent = message;
+            $('#toastContainer').appendChild(t);
+            setTimeout(() => t.remove(), 3000);
+        }
+
+        // Health check
+        async function checkHealth() {
+            try {
+                const res = await fetch('/api/health');
+                $('#statusDot').classList.toggle('offline', !res.ok);
+            } catch {
+                $('#statusDot').classList.add('offline');
+            }
+        }
+
+        // Stats
+        async function loadStats() {
+            try {
+                const res = await fetch('/api/stats');
+                const data = await res.json();
+                const stats = $('#stats');
+                stats.innerHTML = '';
+
+                ['patterns', 'failures', 'decisions', 'total'].forEach(key => {
+                    if (data[key] !== undefined) {
+                        const stat = document.createElement('span');
+                        stat.className = 'stat';
+                        stat.innerHTML = `${key.charAt(0).toUpperCase() + key.slice(1)}: <span class="stat-value">${data[key]}</span>`;
+                        stats.appendChild(stat);
+                    }
+                });
+            } catch (e) {
+                console.error('Stats error:', e);
+            }
+        }
+
+        // Filters
+        async function loadFilters() {
+            try {
+                const res = await fetch('/api/observation-types');
+                const types = await res.json();
+                const container = $('#filters');
+                container.innerHTML = '';
+
+                const allBtn = document.createElement('button');
+                allBtn.className = 'filter-btn active';
+                allBtn.dataset.type = 'all';
+                allBtn.textContent = 'All';
+                allBtn.onclick = () => setFilter('all');
+                container.appendChild(allBtn);
+
+                types.filter(t => t.count > 0).forEach(t => {
+                    const btn = document.createElement('button');
+                    btn.className = 'filter-btn';
+                    btn.dataset.type = t.value;
+                    btn.textContent = `${t.emoji} ${t.label}`;
+                    btn.onclick = () => setFilter(t.value);
+                    container.appendChild(btn);
+                });
+            } catch (e) {
+                console.error('Filters error:', e);
+            }
+        }
+
+        function setFilter(type) {
+            currentFilter = type;
+            $$('.filter-btn').forEach(b => b.classList.toggle('active', b.dataset.type === type));
+            loadContent('knowledge');
+        }
+
+        // Navigation
+        $$('.nav-item').forEach(btn => {
+            btn.onclick = () => {
+                $$('.nav-item').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentTab = btn.dataset.tab;
+                $('#filters').style.display = currentTab === 'knowledge' ? 'flex' : 'none';
+                loadContent(currentTab);
+            };
+        });
+
+        // Search
+        let searchTimer;
+        $('#search').oninput = (e) => {
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(() => {
+                if (e.target.value.length > 1) {
+                    search(e.target.value);
+                } else {
+                    loadContent(currentTab);
+                }
+            }, 300);
+        };
+
+        async function search(query) {
+            const content = $('#content');
+            content.innerHTML = '<div class="loading">Searching...</div>';
+
+            try {
+                const url = `/api/search?q=${encodeURIComponent(query)}${currentFilter !== 'all' ? '&type=' + currentFilter : ''}`;
+                const res = await fetch(url);
+                const items = await res.json();
+
+                if (items.length === 0) {
+                    content.innerHTML = `<div class="empty-state"><div class="empty-state-icon">🔍</div>No results for "${query}"</div>`;
+                } else {
+                    renderKnowledge(items);
+                }
+            } catch (e) {
+                content.innerHTML = `<div class="empty-state">Search failed</div>`;
+            }
+        }
+
+        // Content loader
+        async function loadContent(tab) {
+            const content = $('#content');
+            content.innerHTML = '<div class="loading">Loading...</div>';
+
+            try {
+                switch (tab) {
+                    case 'knowledge':
+                        const kUrl = currentFilter !== 'all' ? `/api/knowledge?type=${currentFilter}` : '/api/knowledge';
+                        const kRes = await fetch(kUrl);
+                        renderKnowledge(await kRes.json());
+                        break;
+                    case 'sessions':
+                        const sRes = await fetch('/api/sessions');
+                        renderSessions(await sRes.json());
+                        break;
+                    case 'handoffs':
+                        const hRes = await fetch('/api/handoffs');
+                        renderHandoffs(await hRes.json());
+                        break;
+                    case 'prompts':
+                        const pRes = await fetch('/api/prompts');
+                        renderPrompts(await pRes.json());
+                        break;
+                    case 'summary':
+                        const sumRes = await fetch('/api/summary');
+                        renderSummary(await sumRes.json());
+                        break;
+                }
+            } catch (e) {
+                content.innerHTML = `<div class="empty-state">Failed to load content</div>`;
+            }
+        }
+
+        // Renderers
+        function renderKnowledge(items) {
+            const content = $('#content');
+            content.innerHTML = '';
+
+            if (!items?.length) {
+                content.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📚</div>No entries found</div>';
+                return;
+            }
+
+            items.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.innerHTML = `
+                    <div class="card-body">
+                        <div class="card-header">
+                            ${item.obs_type ? `<span class="card-badge ${item.obs_type}">${item.obs_emoji || ''} ${item.obs_type}</span>` : ''}
+                            <span class="card-source">${item.file}</span>
+                        </div>
+                        <div class="card-title">${escapeHtml(item.title)}</div>
+                        <div class="card-preview">${escapeHtml(item.preview)}</div>
+                    </div>
+                `;
+                content.appendChild(card);
+            });
+        }
+
+        function renderSessions(sessions) {
+            const content = $('#content');
+            content.innerHTML = '';
+
+            if (!sessions?.length) {
+                content.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📋</div>No sessions found</div>';
+                return;
+            }
+
+            sessions.forEach(s => {
+                const item = document.createElement('div');
+                item.className = 'list-item';
+                item.innerHTML = `
+                    <div class="list-item-main">
+                        <div class="list-item-title">${escapeHtml(s.id || 'Unknown')}</div>
+                        <div class="list-item-subtitle">${s.terminal || ''} · ${s.started_at || ''}</div>
+                    </div>
+                    <span class="list-item-badge ${s.status || ''}">${s.status || 'unknown'}</span>
+                `;
+                content.appendChild(item);
+            });
+        }
+
+        function renderHandoffs(handoffs) {
+            const content = $('#content');
+            content.innerHTML = '';
+
+            if (!handoffs?.length) {
+                content.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🤝</div>No handoffs found</div>';
+                return;
+            }
+
+            handoffs.forEach(h => {
+                const item = document.createElement('div');
+                item.className = 'list-item';
+                item.innerHTML = `
+                    <div class="list-item-main">
+                        <div class="list-item-title">${escapeHtml(h.task || h.filename)}</div>
+                        <div class="list-item-subtitle">${h.ended_at || ''}</div>
+                    </div>
+                    <span class="list-item-badge ${h.status || ''}">${h.status || 'unknown'}</span>
+                `;
+                content.appendChild(item);
+            });
+        }
+
+        function renderPrompts(prompts) {
+            const content = $('#content');
+            content.innerHTML = '';
+
+            // Input area
+            const inputGroup = document.createElement('div');
+            inputGroup.className = 'input-group';
+            inputGroup.innerHTML = `
+                <input type="text" class="input-field" id="promptInput" placeholder="Record a prompt...">
+                <button class="btn btn-primary" id="recordBtn">Record</button>
+                <button class="btn btn-danger" id="clearBtn">Clear</button>
+            `;
+            content.appendChild(inputGroup);
+
+            // Wire up buttons
+            $('#recordBtn').onclick = recordPrompt;
+            $('#clearBtn').onclick = clearPrompts;
+            $('#promptInput').onkeypress = (e) => { if (e.key === 'Enter') recordPrompt(); };
+
+            // List
+            if (!prompts?.length) {
+                const empty = document.createElement('div');
+                empty.className = 'empty-state';
+                empty.innerHTML = '<div class="empty-state-icon">💬</div>No prompts recorded';
+                content.appendChild(empty);
+                return;
+            }
+
+            prompts.forEach(p => {
+                const item = document.createElement('div');
+                item.className = 'prompt-item';
+                item.innerHTML = `
+                    <div class="prompt-time">${formatTime(p.timestamp)}</div>
+                    <div class="prompt-text">${escapeHtml(p.request || p.prompt || '')}</div>
+                    <div class="prompt-meta">${p.word_count || 0} words · ${p.char_count || 0} chars</div>
+                `;
+                content.appendChild(item);
+            });
+        }
+
+        async function recordPrompt() {
+            const input = $('#promptInput');
+            const text = input.value.trim();
+            if (!text) { toast('Enter a prompt', 'error'); return; }
+
+            const btn = $('#recordBtn');
+            btn.classList.add('loading');
+
+            try {
+                const res = await fetch('/api/prompts/record', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt: text })
+                });
+
+                if (res.ok) {
+                    input.value = '';
+                    toast('Recorded', 'success');
+                    loadContent('prompts');
+                } else {
+                    toast('Failed to record', 'error');
+                }
+            } catch {
+                toast('Error recording', 'error');
+            } finally {
+                btn.classList.remove('loading');
+            }
+        }
+
+        async function clearPrompts() {
+            if (!confirm('Clear all prompts?')) return;
+
+            const btn = $('#clearBtn');
+            btn.classList.add('loading');
+
+            try {
+                await fetch('/api/prompts/clear', { method: 'POST' });
+                toast('Cleared', 'success');
+                loadContent('prompts');
+            } catch {
+                toast('Error clearing', 'error');
+            } finally {
+                btn.classList.remove('loading');
+            }
+        }
+
+        function renderSummary(summary) {
+            const content = $('#content');
+            content.innerHTML = '';
+
+            const fields = [
+                { key: 'request', label: 'Request' },
+                { key: 'investigated', label: 'Investigated' },
+                { key: 'learned', label: 'Learned' },
+                { key: 'completed', label: 'Completed' },
+                { key: 'next_steps', label: 'Next Steps' }
+            ];
+
+            fields.forEach(f => {
+                const section = document.createElement('div');
+                section.className = 'summary-section';
+                section.innerHTML = `
+                    <div class="summary-label">${f.label}</div>
+                    <div class="summary-content">${escapeHtml(summary[f.key]) || 'Not available'}</div>
+                `;
+                content.appendChild(section);
+            });
+        }
+
+        // Utilities
+        function escapeHtml(str) {
+            if (!str) return '';
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        function formatTime(ts) {
+            if (!ts) return '';
+            try {
+                return new Date(ts).toLocaleString();
+            } catch {
+                return ts;
+            }
+        }
+
+        // Keyboard shortcuts
+        document.onkeydown = (e) => {
+            if (e.target.tagName === 'INPUT') return;
+
+            const tabs = ['knowledge', 'sessions', 'handoffs', 'prompts', 'summary'];
+            const num = parseInt(e.key);
+
+            if (num >= 1 && num <= 5) {
+                e.preventDefault();
+                $(`[data-tab="${tabs[num-1]}"]`).click();
+            }
+            if (e.key === '/') {
+                e.preventDefault();
+                $('#search').focus();
+            }
+            if (e.key === 'r') {
+                e.preventDefault();
+                loadContent(currentTab);
+                toast('Refreshed', 'info');
+            }
+        };
+
+        // Init
+        checkHealth();
+        setInterval(checkHealth, 30000);
+        loadStats();
+        loadFilters();
+        loadContent('knowledge');
+    </script>
+</body>
+</html>

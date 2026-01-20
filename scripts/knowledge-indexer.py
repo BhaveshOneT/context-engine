@@ -17,6 +17,7 @@ from typing import List, Dict, Set
 sys.path.insert(0, str(Path(__file__).parent))
 import config_loader
 import cache_manager
+from observation_types import ObservationType, ObservationClassifier, get_type_emoji
 
 # Optional: semantic similarity for cross-references
 try:
@@ -109,6 +110,67 @@ def build_keyword_index() -> Dict[str, List[tuple]]:
                 keyword_index[keyword].append((filename, title))
 
     return keyword_index
+
+
+def classify_sections_by_type() -> Dict[ObservationType, List[Dict]]:
+    """Classify all knowledge sections by observation type"""
+    classifier = ObservationClassifier()
+    type_index = defaultdict(list)
+
+    knowledge_files = ['patterns.md', 'failures.md', 'decisions.md', 'gotchas.md']
+
+    for filename in knowledge_files:
+        file_path = KNOWLEDGE_DIR / filename
+        if not file_path.exists():
+            continue
+
+        section_prefix = cache_manager.get_section_prefix(filename)
+        content = cache_manager.load_file_cached(str(file_path))
+        pattern = r'\n' + re.escape(section_prefix)
+
+        sections = re.split(pattern, content)
+
+        for section in sections[1:]:
+            title = section.split('\n')[0].strip()
+            # Classify based on title and first 200 chars of content
+            preview = section[:200]
+            obs_type = classifier.classify(f"{title} {preview}", filename)
+
+            type_index[obs_type].append({
+                'file': filename,
+                'title': title,
+                'preview': preview[:60]
+            })
+
+    return type_index
+
+
+def format_type_section(type_index: Dict[ObservationType, List[Dict]]) -> str:
+    """Format the observation type index section"""
+    lines = []
+
+    # Sort types by count (descending)
+    sorted_types = sorted(
+        type_index.items(),
+        key=lambda x: len(x[1]),
+        reverse=True
+    )
+
+    for obs_type, entries in sorted_types:
+        emoji = get_type_emoji(obs_type)
+        count = len(entries)
+        lines.append(f"### {emoji} {obs_type.value.title()} ({count})")
+
+        # Show top 5 entries for each type
+        for entry in entries[:5]:
+            lines.append(f"- [{entry['file']}] {entry['title']}")
+
+        if count > 5:
+            lines.append(f"- _...and {count - 5} more_")
+
+        lines.append("")
+
+    return '\n'.join(lines)
 
 
 def find_cross_references(threshold: float = None) -> List[Dict]:
@@ -257,6 +319,13 @@ def generate_index():
     print(f"   ✓ {len(keyword_index)} unique keywords")
     print()
 
+    # Classify by observation type
+    print("🏷️  Classifying by observation type...")
+    type_index = classify_sections_by_type()
+    type_counts = {obs_type.value: len(entries) for obs_type, entries in type_index.items()}
+    print(f"   ✓ {sum(type_counts.values())} entries classified into {len(type_counts)} types")
+    print()
+
     # Find cross-references
     print("🔗 Finding cross-references...")
     cross_refs = find_cross_references()
@@ -295,6 +364,13 @@ def generate_index():
 ### Search Tools
 - Keyword search: `./scripts/search-knowledge.sh "term"`
 - Semantic search: `python3 scripts/vector-search.py "query"`
+- Type-filtered: `./ce search-type "query" [type]`
+
+---
+
+## By Observation Type
+
+{format_type_section(type_index)}
 
 ---
 

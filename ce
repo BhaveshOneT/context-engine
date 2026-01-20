@@ -12,6 +12,16 @@ RED='\033[0;31m'
 NC='\033[0m'
 
 case "$1" in
+  activate|on)
+    # Start all services (Web UI, watchers)
+    python3 "$CE_ROOT/scripts/service_manager.py" activate "${@:2}"
+    ;;
+
+  deactivate|off)
+    # Stop all services
+    python3 "$CE_ROOT/scripts/service_manager.py" deactivate
+    ;;
+
   init|start)
     # Initialize new session
     "$CE_ROOT/scripts/init-session.sh" "${@:2}"
@@ -32,6 +42,32 @@ case "$1" in
     python3 "$CE_ROOT/scripts/vector-search.py" "${@:2}"
     ;;
 
+  search-type)
+    # Search by observation type
+    if [ -z "$2" ]; then
+      echo "Usage: ./ce search-type <query> [type]"
+      echo "Types: decision, bugfix, feature, refactor, discovery, change"
+      exit 1
+    fi
+    python3 "$CE_ROOT/scripts/vector-search.py" "$2" --type "${3:-all}"
+    ;;
+
+  prompts)
+    # Prompt tracking
+    python3 "$CE_ROOT/scripts/prompt_tracker.py" "${@:2}"
+    ;;
+
+  summary)
+    # Generate session summary
+    python3 "$CE_ROOT/scripts/session_summarizer.py" "${@:2}"
+    ;;
+
+  ui|web)
+    # Start web UI
+    echo -e "${GREEN}Starting Context Engine Web UI...${NC}"
+    python3 "$CE_ROOT/scripts/web_ui/server.py"
+    ;;
+
   run)
     # Run command with automatic error capture
     echo -e "${GREEN}Running with error capture:${NC} ${@:2}"
@@ -44,8 +80,13 @@ case "$1" in
     ;;
 
   status)
-    # Check session status
-    python3 "$CE_ROOT/scripts/session-orchestrator.py" idle
+    # Check service and session status
+    python3 "$CE_ROOT/scripts/service_manager.py" status
+    ;;
+
+  setup)
+    # Setup Claude Code hooks
+    python3 "$CE_ROOT/scripts/setup_hooks.py" "${@:2}"
     ;;
 
   help|--help|-h)
@@ -53,21 +94,39 @@ case "$1" in
     echo ""
     echo "Usage: ./ce <command> [options]"
     echo ""
+    echo "Quick Start:"
+    echo "  ./ce setup         One-time: configure Claude Code hooks"
+    echo "  ./ce activate      Start everything (100% automatic)"
+    echo "  ./ce deactivate    Stop & archive session"
+    echo ""
     echo "Commands:"
-    echo "  init <task>     Start new session"
-    echo "  archive         Archive completed task"
-    echo "  search <term>   Keyword search in knowledge"
-    echo "  vsearch <term>  Semantic/vector search"
-    echo "  run <command>   Run command with auto error capture"
-    echo "  extract         Check/create extraction prompts"
-    echo "  status          Check session status"
-    echo "  help            Show this help message"
+    echo "  activate | on      Start services + auto-create session"
+    echo "  deactivate | off   Archive session + stop services"
+    echo "  status             Show full status"
+    echo "  setup              Configure Claude Code hooks (one-time)"
+    echo ""
+    echo "  init <task>        Start new session"
+    echo "  archive            Archive completed task"
+    echo ""
+    echo "  search <term>      Keyword search in knowledge"
+    echo "  vsearch <term>     Semantic/vector search"
+    echo "  search-type <q> [type]  Search by observation type"
+    echo ""
+    echo "  prompts [cmd]      Manage prompt tracking"
+    echo "  summary            Generate session summary"
+    echo "  ui | web           Start web UI only (foreground)"
+    echo "  run <command>      Run command with error capture"
+    echo "  extract            Check/create extraction prompts"
+    echo "  help               Show this help message"
+    echo ""
+    echo "Observation Types:"
+    echo "  decision, bugfix, feature, refactor, discovery, change"
     echo ""
     echo "Examples:"
-    echo "  ./ce init \"implement-jwt-auth\""
-    echo "  ./ce search authentication"
-    echo "  ./ce run npm test"
-    echo "  ./ce vsearch \"jwt token issues\""
+    echo "  ./ce activate                    # Start everything"
+    echo "  ./ce init \"implement-jwt-auth\"   # New session"
+    echo "  ./ce vsearch \"jwt token issues\"  # Semantic search"
+    echo "  ./ce deactivate                  # Stop services"
     ;;
 
   "")

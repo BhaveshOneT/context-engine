@@ -126,6 +126,28 @@ paths:
   archive_dir: 'archive'
   scripts_dir: 'scripts'
 
+# Prompt Tracking Settings (claude-mem inspired)
+prompt_tracking:
+  # Enable prompt tracking
+  enabled: true
+
+  # Maximum characters to store per prompt
+  max_prompt_length: 500
+
+  # Maximum prompts to keep in history
+  history_limit: 100
+
+# Web UI Settings
+web_ui:
+  # Enable web UI
+  enabled: true
+
+  # Port for web server
+  port: 8765
+
+  # Debug mode for development
+  debug: false
+
 # Advanced Settings
 advanced:
   # Verbose logging

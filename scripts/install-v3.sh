@@ -5,7 +5,7 @@
 set -e
 
 # Suppress LibreSSL warning from urllib3 when using macOS system Python
-export PYTHONWARNINGS="${PYTHONWARNINGS:-ignore::urllib3.exceptions.NotOpenSSLWarning}"
+export PYTHONWARNINGS="${PYTHONWARNINGS:-ignore:.*LibreSSL.*}"
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "🚀 Ultra-Planning V3: Installing Dependencies"

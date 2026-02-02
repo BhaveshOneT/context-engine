@@ -29,3 +29,15 @@ When you discover something surprising:
 ---
 
 <!-- Gotchas will be added below this line -->
+
+## Gotcha: Auto-extractor promotes knowledge on idle
+**Discovered:** 2026-02-02
+**Occurrences:** 1 time
+**Context:** Auto-extracted from active/context.md
+**Surprise:** Idle extraction now auto-promotes discoveries/decisions into knowledge/*.md
+Source: Internal test run (session-orchestrator idle)
+Relevance: Confirms knowledge base can grow without manual copy/paste
+**Why it happens:** (fill in)
+**How to handle:** (fill in)
+**Watch out:** (fill in)
+**Related:**

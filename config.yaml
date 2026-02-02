@@ -105,6 +105,12 @@ knowledge:
   # Run embedding generation in background to keep idle cycles fast
   embed_async: true
 
+  # Auto-extract discoveries/decisions into knowledge base
+  auto_extract: true
+
+  # Include discoveries from context.md (Research Findings, Key Insights)
+  auto_extract_discoveries: true
+
   # Keyword extraction minimum word length
   keyword_min_length: 3
 

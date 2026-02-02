@@ -1,6 +1,6 @@
 # Knowledge Index
 
-**Last updated:** 2026-02-02 14:46
+**Last updated:** 2026-02-02 15:40
 **Auto-generated** by knowledge-indexer.py _(do not edit manually)_
 
 ---
@@ -10,8 +10,8 @@
 - **Patterns documented:** 0
 - **Failures prevented:** 2
 - **Decisions recorded:** 0
-- **Gotchas tracked:** 0
-- **Total knowledge entries:** 2
+- **Gotchas tracked:** 1
+- **Total knowledge entries:** 3
 
 ---
 
@@ -36,45 +36,64 @@
 - [failures.md] [Auto-Detected] Traceback (most recent call last):
 - [failures.md] [Auto-Detected] Test error for capture
 
+### 💡 Discovery (1)
+- [gotchas.md] Auto-extractor promotes knowledge on idle
+
 
 ---
 
 ## Most Common Keywords
 
-- **recent** (2 in failures.md)
-- **solution** (2 in failures.md)
+- **test** (2 in failures.md, 1 in gotchas.md)
+- **2026** (2 in failures.md, 1 in gotchas.md)
+- **fill** (2 in failures.md, 1 in gotchas.md)
+- **auto** (2 in failures.md, 1 in gotchas.md)
 - **capture** (2 in failures.md)
-- **status** (2 in failures.md)
-- **symptom** (2 in failures.md)
-- **2026** (2 in failures.md)
-- **fixed** (2 in failures.md)
-- **valueerror** (2 in failures.md)
-- **last** (2 in failures.md)
 - **command** (2 in failures.md)
-- **trace** (2 in failures.md)
-- **add** (2 in failures.md)
-- **most** (2 in failures.md)
-- **stack** (2 in failures.md)
-- **raise** (2 in failures.md)
-- **captured** (2 in failures.md)
-- **resolve** (2 in failures.md)
-- **traceback** (2 in failures.md)
-- **needs** (2 in failures.md)
-- **test** (2 in failures.md)
-- **auto** (2 in failures.md)
-- **error** (2 in failures.md)
-- **detected** (2 in failures.md)
-- **call** (2 in failures.md)
-- **once** (2 in failures.md)
-- **fill** (2 in failures.md)
-- **fingerprint** (2 in failures.md)
 - **python3** (2 in failures.md)
+- **solution** (2 in failures.md)
+- **recent** (2 in failures.md)
+- **error** (2 in failures.md)
+- **once** (2 in failures.md)
+- **fingerprint** (2 in failures.md)
+- **needs** (2 in failures.md)
+- **trace** (2 in failures.md)
+- **raise** (2 in failures.md)
+- **traceback** (2 in failures.md)
+- **status** (2 in failures.md)
+- **resolve** (2 in failures.md)
+- **call** (2 in failures.md)
+- **symptom** (2 in failures.md)
+- **valueerror** (2 in failures.md)
+- **most** (2 in failures.md)
+- **detected** (2 in failures.md)
+- **add** (2 in failures.md)
+- **fixed** (2 in failures.md)
+- **stack** (2 in failures.md)
+- **captured** (2 in failures.md)
+- **last** (2 in failures.md)
 - **def5a93cab7c** (1 in failures.md)
-- **line** (1 in failures.md)
 - **cc44c2445eb6** (1 in failures.md)
-- **module** (1 in failures.md)
 - **file** (1 in failures.md)
+- **module** (1 in failures.md)
+- **line** (1 in failures.md)
 - **string** (1 in failures.md)
+- **manual** (1 in gotchas.md)
+- **extraction** (1 in gotchas.md)
+- **into** (1 in gotchas.md)
+- **surprise** (1 in gotchas.md)
+- **idle** (1 in gotchas.md)
+- **discovered** (1 in gotchas.md)
+- **occurrences** (1 in gotchas.md)
+- **orchestrator** (1 in gotchas.md)
+- **confirms** (1 in gotchas.md)
+- **copy** (1 in gotchas.md)
+- **without** (1 in gotchas.md)
+- **active** (1 in gotchas.md)
+- **out** (1 in gotchas.md)
+- **base** (1 in gotchas.md)
+- **decisions** (1 in gotchas.md)
+- **knowledge** (1 in gotchas.md)
 
 ---
 

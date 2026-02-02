@@ -5,6 +5,7 @@ active/task_plan.md
 active/context.md
 active/.session_id
 active/.prompts_log.yaml
+active/.extraction_needed.txt
 ledgers/CONTINUITY_active.md
 
 # Keep templates
@@ -20,6 +21,7 @@ sessions.db-wal
 knowledge/vectors/*.vec
 knowledge/vectors/*.json
 knowledge/vectors/*.npy
+knowledge/.auto_extracted.json
 knowledge/.index_state.json
 
 # TLDR code analysis (can be regenerated)

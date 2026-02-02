@@ -219,6 +219,17 @@ class SessionOrchestrator:
             print(f"   Warning: Extraction check failed")
         print()
 
+        # Auto-extract knowledge (heuristic)
+        auto_extract = config_loader.get('knowledge.auto_extract', True)
+        if auto_extract:
+            print("Auto-extracting knowledge...")
+            success, output, _ = self._run_script('auto-extractor.py', [], timeout=20)
+            if success:
+                print(output.strip() or "   Auto-extractor done")
+            else:
+                print("   Auto-extractor had issues")
+            print()
+
         # Update knowledge index
         print("Updating knowledge index...")
         auto_index = config_loader.get('knowledge.auto_update_index', True)

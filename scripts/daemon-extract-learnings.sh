@@ -194,6 +194,9 @@ run_once() {
         else
             # V2 fallback
             echo "⚠️  V3 not available, using V2 extraction..."
+            if command -v python3 &> /dev/null && [ -f "$MEMORY_DIR/scripts/auto-extractor.py" ]; then
+                python3 "$MEMORY_DIR/scripts/auto-extractor.py" || true
+            fi
             extract_patterns
             extract_failures
             extract_decisions

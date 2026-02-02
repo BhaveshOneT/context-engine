@@ -141,6 +141,15 @@ git commit -m "Add JWT auth"
 - Git hooks remind (no API calls, just text)
 - 85% automated, zero extra costs
 
+**Automatic Fallback (Heuristic Auto-Extractor):**
+- Runs during idle processing
+- Promotes items from:
+  - `active/context.md` → Research Findings + Key Insights
+  - `active/context.md` → Extractable Knowledge checklist (checked items)
+  - `active/task_plan.md` → Decisions section
+- Writes structured entries to knowledge/*.md
+- Zero manual copy/paste required (best-effort, verify content)
+
 ---
 
 ### Module 4: File Watcher 👁️

@@ -37,14 +37,14 @@ echo ""
 
 # Core dependencies
 echo "1/3: Installing watchdog (File Watcher)..."
-python3 -m pip install watchdog
+PYTHONWARNINGS="ignore:NotOpenSSLWarning" python3 -m pip install watchdog
 echo "   ✓ watchdog installed"
 echo ""
 
 # Semantic search dependencies (optional but recommended)
 echo "2/3: Installing sentence-transformers (Semantic Search)..."
 echo "   (This may take a few minutes on first install)"
-python3 -m pip install sentence-transformers numpy
+PYTHONWARNINGS="ignore:NotOpenSSLWarning" python3 -m pip install sentence-transformers numpy
 echo "   ✓ sentence-transformers installed"
 echo "   ✓ numpy installed"
 echo ""

@@ -4,6 +4,9 @@
 
 set -e
 
+# Suppress LibreSSL warning from urllib3 when using macOS system Python
+export PYTHONWARNINGS="${PYTHONWARNINGS:-ignore::urllib3.exceptions.NotOpenSSLWarning}"
+
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "🚀 Ultra-Planning V3: Installing Dependencies"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -37,21 +40,21 @@ echo ""
 
 # Core dependencies
 echo "1/3: Installing watchdog (File Watcher)..."
-PYTHONWARNINGS="ignore:NotOpenSSLWarning" python3 -m pip install watchdog
+python3 -m pip install watchdog
 echo "   ✓ watchdog installed"
 echo ""
 
 # Semantic search dependencies (optional but recommended)
 echo "2/3: Installing sentence-transformers (Semantic Search)..."
 echo "   (This may take a few minutes on first install)"
-PYTHONWARNINGS="ignore:NotOpenSSLWarning" python3 -m pip install sentence-transformers numpy
+python3 -m pip install sentence-transformers numpy
 echo "   ✓ sentence-transformers installed"
 echo "   ✓ numpy installed"
 echo ""
 
 # Verify installations
 echo "3/3: Verifying installations..."
-PYTHONWARNINGS="ignore:NotOpenSSLWarning" python3 - <<'PY'
+python3 - <<'PY'
 import importlib.metadata as md
 import watchdog
 version = getattr(watchdog, "__version__", None)
@@ -62,11 +65,11 @@ if not version:
         version = "unknown"
 print("   ✓ watchdog version:", version)
 PY
-PYTHONWARNINGS="ignore:NotOpenSSLWarning" python3 - <<'PY'
+python3 - <<'PY'
 import sentence_transformers
 print("   ✓ sentence-transformers OK")
 PY
-PYTHONWARNINGS="ignore:NotOpenSSLWarning" python3 - <<'PY'
+python3 - <<'PY'
 import numpy as np
 print("   ✓ numpy version:", np.__version__)
 PY

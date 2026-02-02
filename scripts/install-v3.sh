@@ -21,13 +21,13 @@ echo "✓ Found: $PYTHON_VERSION"
 echo ""
 
 # Check if pip is available
-if ! command -v pip3 &> /dev/null; then
-    echo "❌ pip3 not found!"
-    echo "   Install pip3 first"
+if ! python3 -m pip --version &> /dev/null; then
+    echo "❌ pip not found!"
+    echo "   Install pip for Python3 first"
     exit 1
 fi
 
-echo "✓ pip3 found"
+echo "✓ pip found"
 echo ""
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -37,21 +37,21 @@ echo ""
 
 # Core dependencies
 echo "1/3: Installing watchdog (File Watcher)..."
-pip3 install watchdog
+python3 -m pip install watchdog
 echo "   ✓ watchdog installed"
 echo ""
 
 # Semantic search dependencies (optional but recommended)
 echo "2/3: Installing sentence-transformers (Semantic Search)..."
 echo "   (This may take a few minutes on first install)"
-pip3 install sentence-transformers numpy
+python3 -m pip install sentence-transformers numpy
 echo "   ✓ sentence-transformers installed"
 echo "   ✓ numpy installed"
 echo ""
 
 # Verify installations
 echo "3/3: Verifying installations..."
-python3 - <<'PY'
+PYTHONWARNINGS="ignore:NotOpenSSLWarning" python3 - <<'PY'
 import importlib.metadata as md
 import watchdog
 version = getattr(watchdog, "__version__", None)
@@ -62,11 +62,11 @@ if not version:
         version = "unknown"
 print("   ✓ watchdog version:", version)
 PY
-python3 - <<'PY'
+PYTHONWARNINGS="ignore:NotOpenSSLWarning" python3 - <<'PY'
 import sentence_transformers
 print("   ✓ sentence-transformers OK")
 PY
-python3 - <<'PY'
+PYTHONWARNINGS="ignore:NotOpenSSLWarning" python3 - <<'PY'
 import numpy as np
 print("   ✓ numpy version:", np.__version__)
 PY

@@ -14,26 +14,29 @@ Usage:
 import sys
 import os
 import sqlite3
+import argparse
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 
-MEMORY_DIR = Path(os.environ.get("PROJECT_MEMORY_DIR", ".project-memory"))
+SCRIPT_DIR = Path(__file__).parent
+MEMORY_DIR = Path(os.environ.get("PROJECT_MEMORY_DIR", str(SCRIPT_DIR.parent)))
 DB_PATH = MEMORY_DIR / "sessions.db"
 
 
 @contextmanager
 def get_db_connection():
     """Context manager for database connections"""
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=5)
     try:
         yield conn
     finally:
         conn.close()
 
 
-def init_database():
+def init_database(quiet: bool = False):
     """Initialize SQLite database with schema"""
+    MEMORY_DIR.mkdir(parents=True, exist_ok=True)
     with get_db_connection() as conn:
         cursor = conn.cursor()
 
@@ -76,30 +79,59 @@ def init_database():
 
         conn.commit()
 
-    print(f"Database initialized: {DB_PATH}")
+    if not quiet:
+        print(f"Database initialized: {DB_PATH}")
 
 
-def register_session(terminal="laptop"):
+def ensure_database():
+    """Ensure database exists and schema is initialized"""
+    init_database(quiet=True)
+
+
+def _default_terminal() -> str:
+    return os.environ.get("CE_TERMINAL") or os.environ.get("HOSTNAME") or "laptop"
+
+
+def register_session(
+    terminal: str = "laptop",
+    session_id: str = None,
+    started_at: str = None,
+    status: str = "active",
+    quiet: bool = False,
+):
     """Register a new session"""
-    session_id = f"sess_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{terminal}"
-    now = datetime.now().isoformat()
+    ensure_database()
+
+    if not terminal:
+        terminal = _default_terminal()
+
+    if session_id is None:
+        session_id = f"sess_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{terminal}"
+
+    now = started_at or datetime.now().isoformat()
 
     with get_db_connection() as conn:
         conn.execute(
-            "INSERT INTO sessions (id, terminal, started_at, status) VALUES (?, ?, ?, 'active')",
-            (session_id, terminal, now),
+            "INSERT OR IGNORE INTO sessions (id, terminal, started_at, status) VALUES (?, ?, ?, ?)",
+            (session_id, terminal, now, status),
+        )
+        conn.execute(
+            "UPDATE sessions SET terminal = ?, status = ? WHERE id = ?",
+            (terminal, status, session_id),
         )
         conn.commit()
 
-    print(f"Session registered: {session_id}")
-    print(f"  Terminal: {terminal}")
-    print(f"  Started: {now}")
+    if not quiet:
+        print(f"Session registered: {session_id}")
+        print(f"  Terminal: {terminal}")
+        print(f"  Started: {now}")
 
     return session_id
 
 
 def list_sessions():
     """List all sessions"""
+    ensure_database()
     with get_db_connection() as conn:
         cursor = conn.execute("""
             SELECT id, terminal, started_at, status, last_handoff
@@ -128,6 +160,7 @@ def list_sessions():
 
 def get_latest_session():
     """Get the most recent session"""
+    ensure_database()
     with get_db_connection() as conn:
         cursor = conn.execute("""
             SELECT id, terminal, started_at, last_handoff
@@ -155,6 +188,7 @@ def get_latest_session():
 
 def claim_file(filepath, intent, session_id=None):
     """Claim a file (distributed locking)"""
+    ensure_database()
     # Get session ID if not provided
     if not session_id:
         with get_db_connection() as conn:
@@ -192,34 +226,99 @@ def claim_file(filepath, intent, session_id=None):
     print(f"  Intent: {intent}")
 
 
+def end_session(
+    session_id: str,
+    status: str = "completed",
+    handoff_path: str = None,
+    ended_at: str = None,
+    quiet: bool = False,
+):
+    """Mark a session as ended/completed"""
+    if not session_id:
+        if not quiet:
+            print("Error: session_id required to end session")
+        return
+
+    ensure_database()
+    now = ended_at or datetime.now().isoformat()
+
+    with get_db_connection() as conn:
+        # Ensure session exists
+        conn.execute(
+            "INSERT OR IGNORE INTO sessions (id, terminal, started_at, status) VALUES (?, ?, ?, ?)",
+            (session_id, _default_terminal(), now, status),
+        )
+        conn.execute(
+            "UPDATE sessions SET ended_at = ?, status = ?, last_handoff = ? WHERE id = ?",
+            (now, status, handoff_path, session_id),
+        )
+        conn.commit()
+
+    if not quiet:
+        print(f"Session ended: {session_id}")
+        print(f"  Status: {status}")
+        print(f"  Ended: {now}")
+
+
 def main():
-    if len(sys.argv) < 2:
-        print("Usage:")
-        print(f"  {sys.argv[0]} init                 # Initialize database")
-        print(f"  {sys.argv[0]} register <terminal>  # Register new session")
-        print(f"  {sys.argv[0]} list                 # List sessions")
-        print(f"  {sys.argv[0]} latest               # Show latest session")
-        print(f"  {sys.argv[0]} claim <file> <intent>  # Claim a file")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(description="Session Registry - Cross-terminal awareness")
+    subparsers = parser.add_subparsers(dest="command")
 
-    command = sys.argv[1]
+    init_parser = subparsers.add_parser("init", help="Initialize database")
+    init_parser.add_argument("--quiet", action="store_true", help="Suppress output")
 
-    if command == "init":
-        init_database()
-    elif command == "register":
-        terminal = sys.argv[2] if len(sys.argv) > 2 else "laptop"
-        register_session(terminal)
-    elif command == "list":
+    register_parser = subparsers.add_parser("register", help="Register new session")
+    register_parser.add_argument("terminal", nargs="?", default=None, help="Terminal name (optional)")
+    register_parser.add_argument("--id", dest="session_id", help="Session ID to register")
+    register_parser.add_argument("--status", default="active", help="Session status")
+    register_parser.add_argument("--started-at", dest="started_at", help="Override started timestamp")
+    register_parser.add_argument("--quiet", action="store_true", help="Suppress output")
+
+    list_parser = subparsers.add_parser("list", help="List sessions")
+
+    latest_parser = subparsers.add_parser("latest", help="Show latest session")
+
+    claim_parser = subparsers.add_parser("claim", help="Claim a file")
+    claim_parser.add_argument("file_path", help="File path to claim")
+    claim_parser.add_argument("intent", help="Intent for claim")
+    claim_parser.add_argument("--session", dest="session_id", help="Session ID to associate")
+
+    end_parser = subparsers.add_parser("end", help="End a session")
+    end_parser.add_argument("--id", dest="session_id", required=True, help="Session ID to end")
+    end_parser.add_argument("--status", default="completed", help="Final session status")
+    end_parser.add_argument("--handoff", dest="handoff_path", help="Handoff YAML path")
+    end_parser.add_argument("--ended-at", dest="ended_at", help="Override ended timestamp")
+    end_parser.add_argument("--quiet", action="store_true", help="Suppress output")
+
+    args = parser.parse_args()
+
+    if args.command == "init":
+        init_database(quiet=args.quiet)
+    elif args.command == "register":
+        terminal = args.terminal or _default_terminal()
+        register_session(
+            terminal=terminal,
+            session_id=args.session_id,
+            started_at=args.started_at,
+            status=args.status,
+            quiet=args.quiet,
+        )
+    elif args.command == "list":
         list_sessions()
-    elif command == "latest":
+    elif args.command == "latest":
         get_latest_session()
-    elif command == "claim":
-        if len(sys.argv) < 4:
-            print("Usage: claim <file_path> <intent>")
-            sys.exit(1)
-        claim_file(sys.argv[2], sys.argv[3])
+    elif args.command == "claim":
+        claim_file(args.file_path, args.intent, session_id=args.session_id)
+    elif args.command == "end":
+        end_session(
+            session_id=args.session_id,
+            status=args.status,
+            handoff_path=args.handoff_path,
+            ended_at=args.ended_at,
+            quiet=args.quiet,
+        )
     else:
-        print(f"Unknown command: {command}")
+        parser.print_help()
         sys.exit(1)
 
 

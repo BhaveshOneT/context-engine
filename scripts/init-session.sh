@@ -4,7 +4,8 @@
 
 set -e
 
-MEMORY_DIR="${PROJECT_MEMORY_DIR:-.project-memory}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+MEMORY_DIR="${PROJECT_MEMORY_DIR:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 TASK_NAME="${1:-unnamed-task}"
 SESSION_ID="sess_$(date +%Y%m%d_%H%M%S)"
 
@@ -16,8 +17,17 @@ echo "Task: $TASK_NAME"
 echo "Session ID: $SESSION_ID"
 echo ""
 
-# Create active directory if it doesn't exist
-mkdir -p "$MEMORY_DIR/active"
+# Create required directories if they don't exist
+mkdir -p "$MEMORY_DIR/active" "$MEMORY_DIR/ledgers" "$MEMORY_DIR/handoffs" "$MEMORY_DIR/archive"
+
+# Persist session id for prompt tracking
+echo "$SESSION_ID" > "$MEMORY_DIR/active/.session_id"
+
+# Register session in registry (for Web UI)
+if command -v python3 &> /dev/null && [ -f "$MEMORY_DIR/scripts/session-registry.py" ]; then
+    TERMINAL_NAME="${CE_TERMINAL:-$(hostname -s 2>/dev/null || hostname 2>/dev/null || echo "terminal")}"
+    python3 "$MEMORY_DIR/scripts/session-registry.py" register "$TERMINAL_NAME" --id "$SESSION_ID" --quiet || true
+fi
 
 # Copy templates to active directory
 if [ -f "$MEMORY_DIR/active/TEMPLATE_task_plan.md" ]; then
@@ -89,7 +99,7 @@ else
     echo "════════════════════════════════════════════════════"
     echo ""
     echo "Next steps:"
-    echo "  1. Edit .project-memory/active/task_plan.md"
+    echo "  1. Edit $MEMORY_DIR/active/task_plan.md"
     echo "  2. Install V3 dependencies: scripts/install-v3.sh"
     echo "  3. Start working!"
     echo ""

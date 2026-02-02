@@ -33,31 +33,26 @@ KNOWLEDGE_DIR = MEMORY_DIR / 'knowledge'
 VECTORS_DIR = KNOWLEDGE_DIR / 'vectors'
 
 
-def count_sections(file_path: Path, pattern: str) -> int:
-    """Count sections in a markdown file (with caching)"""
-    if not file_path.exists():
-        return 0
-
-    # Use cached file loading
-    content = cache_manager.load_file_cached(str(file_path))
-
-    return len(re.findall(pattern, content, re.IGNORECASE))
-
-
-def extract_section_titles(file_path: Path, pattern: str) -> List[str]:
-    """Extract section titles from markdown file (with caching)"""
+def _load_sections(file_path: Path) -> List[Dict]:
+    """Load parsed sections using cache_manager (ignores code blocks)."""
     if not file_path.exists():
         return []
 
-    # Use cached file loading
-    content = cache_manager.load_file_cached(str(file_path))
+    file_hash = cache_manager.hash_file_cached(str(file_path))
+    if not file_hash:
+        return []
 
-    titles = []
-    for match in re.finditer(pattern + r'(.+)', content, re.IGNORECASE):
-        title = match.group(1).strip()
-        titles.append(title)
+    return list(cache_manager.parse_sections_cached(str(file_path), file_hash))
 
-    return titles
+
+def count_sections(file_path: Path) -> int:
+    """Count sections in a markdown file (with caching)"""
+    return len(_load_sections(file_path))
+
+
+def extract_section_titles(file_path: Path) -> List[str]:
+    """Extract section titles from markdown file (with caching)"""
+    return [s.get('title', '').strip() for s in _load_sections(file_path) if s.get('title')]
 
 
 def extract_keywords_from_text(text: str) -> Set[str]:
@@ -96,15 +91,12 @@ def build_keyword_index() -> Dict[str, List[tuple]]:
         if not file_path.exists():
             continue
 
-        section_prefix = cache_manager.get_section_prefix(filename)
-        content = cache_manager.load_file_cached(str(file_path))
-        pattern = r'\n' + re.escape(section_prefix)
+        sections = _load_sections(file_path)
 
-        sections = re.split(pattern, content)
-
-        for section in sections[1:]:
-            title = section.split('\n')[0].strip()
-            keywords = extract_keywords_from_text(section)
+        for section in sections:
+            title = section.get('title', '').strip()
+            content = section.get('content', '')
+            keywords = extract_keywords_from_text(content)
 
             for keyword in keywords:
                 keyword_index[keyword].append((filename, title))
@@ -124,16 +116,12 @@ def classify_sections_by_type() -> Dict[ObservationType, List[Dict]]:
         if not file_path.exists():
             continue
 
-        section_prefix = cache_manager.get_section_prefix(filename)
-        content = cache_manager.load_file_cached(str(file_path))
-        pattern = r'\n' + re.escape(section_prefix)
+        sections = _load_sections(file_path)
 
-        sections = re.split(pattern, content)
-
-        for section in sections[1:]:
-            title = section.split('\n')[0].strip()
+        for section in sections:
+            title = section.get('title', '').strip()
             # Classify based on title and first 200 chars of content
-            preview = section[:200]
+            preview = section.get('content', '')[:200]
             obs_type = classifier.classify(f"{title} {preview}", filename)
 
             type_index[obs_type].append({
@@ -297,10 +285,10 @@ def generate_index():
 
     # Count entries
     stats = {
-        'patterns': count_sections(KNOWLEDGE_DIR / 'patterns.md', r'## Pattern:'),
-        'failures': count_sections(KNOWLEDGE_DIR / 'failures.md', r'## Error:'),
-        'decisions': count_sections(KNOWLEDGE_DIR / 'decisions.md', r'## Decision:'),
-        'gotchas': count_sections(KNOWLEDGE_DIR / 'gotchas.md', r'## Gotcha:'),
+        'patterns': count_sections(KNOWLEDGE_DIR / 'patterns.md'),
+        'failures': count_sections(KNOWLEDGE_DIR / 'failures.md'),
+        'decisions': count_sections(KNOWLEDGE_DIR / 'decisions.md'),
+        'gotchas': count_sections(KNOWLEDGE_DIR / 'gotchas.md'),
     }
 
     total = sum(stats.values())

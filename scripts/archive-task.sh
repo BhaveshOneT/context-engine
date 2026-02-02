@@ -4,7 +4,8 @@
 
 set -e
 
-MEMORY_DIR="${PROJECT_MEMORY_DIR:-.project-memory}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+MEMORY_DIR="${PROJECT_MEMORY_DIR:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 ARCHIVE_DATE=$(date +%Y-%m-%d)
 
 echo "════════════════════════════════════════════════════"
@@ -33,6 +34,9 @@ if [ -z "$TASK_NAME" ]; then
     TASK_NAME="unnamed-task"
 fi
 
+# Extract session id (if present)
+SESSION_ID=$(grep -m1 "^\*\*Session ID:\*\*" "$MEMORY_DIR/active/task_plan.md" | sed -E 's/^\*\*Session ID:\*\* //')
+
 ARCHIVE_DIR="$MEMORY_DIR/archive/${ARCHIVE_DATE}_${TASK_NAME}"
 
 # Create archive directory
@@ -60,9 +64,20 @@ fi
 
 # Archive handoff
 if [ -f "$MEMORY_DIR/handoffs/latest.yaml" ]; then
+    mkdir -p "$MEMORY_DIR/handoffs/archive"
     cp "$MEMORY_DIR/handoffs/latest.yaml" "$ARCHIVE_DIR/handoff.yaml"
     mv "$MEMORY_DIR/handoffs/latest.yaml" "$MEMORY_DIR/handoffs/archive/${ARCHIVE_DATE}_${TASK_NAME}.yaml"
     echo "✓ Archived handoff"
+fi
+
+# Update session registry
+if [ -n "$SESSION_ID" ] && command -v python3 &> /dev/null && [ -f "$MEMORY_DIR/scripts/session-registry.py" ]; then
+    ARCHIVED_HANDOFF="$MEMORY_DIR/handoffs/archive/${ARCHIVE_DATE}_${TASK_NAME}.yaml"
+    if [ -f "$ARCHIVED_HANDOFF" ]; then
+        python3 "$MEMORY_DIR/scripts/session-registry.py" end --id "$SESSION_ID" --handoff "$ARCHIVED_HANDOFF" --quiet || true
+    else
+        python3 "$MEMORY_DIR/scripts/session-registry.py" end --id "$SESSION_ID" --quiet || true
+    fi
 fi
 
 # Create archive README
@@ -83,10 +98,10 @@ cat > "$ARCHIVE_DIR/README.md" << EOF
 
 Check these knowledge base files for learnings from this session:
 
-- \`.project-memory/knowledge/patterns.md\`
-- \`.project-memory/knowledge/failures.md\`
-- \`.project-memory/knowledge/decisions.md\`
-- \`.project-memory/knowledge/gotchas.md\`
+- \`$MEMORY_DIR/knowledge/patterns.md\`
+- \`$MEMORY_DIR/knowledge/failures.md\`
+- \`$MEMORY_DIR/knowledge/decisions.md\`
+- \`$MEMORY_DIR/knowledge/gotchas.md\`
 
 ## Restore
 

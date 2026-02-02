@@ -5,7 +5,8 @@
 
 set -e
 
-MEMORY_DIR="${PROJECT_MEMORY_DIR:-.project-memory}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+MEMORY_DIR="${PROJECT_MEMORY_DIR:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 IDLE_THRESHOLD=300  # 5 minutes in seconds
 
 echo "🤖 Ultra-Planning V3: Daemon Learning Extractor"

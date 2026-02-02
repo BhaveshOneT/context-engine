@@ -4,7 +4,8 @@
 
 set -e
 
-MEMORY_DIR="${PROJECT_MEMORY_DIR:-.project-memory}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+MEMORY_DIR="${PROJECT_MEMORY_DIR:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 
 echo "════════════════════════════════════════════════════"
 echo "  📚 ULTRA-PLANNING V2: Loading Knowledge Base"

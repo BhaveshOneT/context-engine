@@ -143,6 +143,33 @@ def get_section_prefix(filename: str) -> str:
     return '## '
 
 
+def _iter_sections(content: str, section_prefix: str):
+    """Yield (title, body_lines) for sections outside fenced code blocks."""
+    lines = content.splitlines()
+    in_code_block = False
+    current_title = None
+    current_lines = []
+
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("```"):
+            in_code_block = not in_code_block
+
+        candidate = line.lstrip()
+        if not in_code_block and candidate.startswith(section_prefix):
+            if current_title is not None:
+                yield current_title, current_lines
+            current_title = candidate[len(section_prefix):].strip()
+            current_lines = []
+            continue
+
+        if current_title is not None:
+            current_lines.append(line)
+
+    if current_title is not None:
+        yield current_title, current_lines
+
+
 @lru_cache(maxsize=16)
 def parse_sections_cached(file_path: str, file_hash: str) -> tuple:
     """
@@ -157,25 +184,22 @@ def parse_sections_cached(file_path: str, file_hash: str) -> tuple:
     Returns:
         Tuple of section dicts (hashable for caching)
     """
-    import re
-
     path = Path(file_path)
     if not path.exists():
         return tuple()
 
     content = load_file_cached(file_path)
     section_prefix = get_section_prefix(path.name)
-    pattern = r'\n' + re.escape(section_prefix)
-
-    splits = re.split(pattern, content)
 
     sections = []
-    for i, section in enumerate(splits[1:], 1):
+    for i, (title, body_lines) in enumerate(_iter_sections(content, section_prefix), 1):
+        section_body = "\n".join([title] + body_lines).strip()
         sections.append({
             'id': f'{path.stem}_section_{i}',
             'file': path.name,
-            'content': section_prefix + section.strip(),
-            'preview': section[:100].strip()
+            'title': title,
+            'content': f"{section_prefix} {section_body}".strip(),
+            'preview': section_body[:100].strip()
         })
 
     return tuple(sections)

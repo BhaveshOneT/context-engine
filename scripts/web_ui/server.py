@@ -93,6 +93,12 @@ def api_endpoint(f: Callable) -> Callable:
     return decorated
 
 
+def refresh_knowledge_caches():
+    """Ensure knowledge reads reflect latest filesystem state."""
+    cache_manager.clear_file_cache()
+    cache_manager.clear_parsed_cache()
+
+
 # ============================================================================
 # Input Validation
 # ============================================================================
@@ -189,6 +195,7 @@ def index():
 @api_endpoint
 def get_stats():
     """Get knowledge base statistics."""
+    refresh_knowledge_caches()
     stats = knowledge_parser.get_knowledge_stats()
     return jsonify(stats)
 
@@ -197,6 +204,7 @@ def get_stats():
 @api_endpoint
 def get_knowledge():
     """Get all knowledge base entries with optional type filter."""
+    refresh_knowledge_caches()
     type_filter = validate_type_filter(request.args.get('type', 'all'))
 
     entries = knowledge_parser.parse_all_knowledge_files(
@@ -211,6 +219,7 @@ def get_knowledge():
 @api_endpoint
 def search():
     """Search knowledge base by keyword."""
+    refresh_knowledge_caches()
     query = request.args.get('q', '')
     type_filter = validate_type_filter(request.args.get('type', 'all'))
 
@@ -230,6 +239,7 @@ def search():
 @api_endpoint
 def get_observation_types():
     """Get list of observation types with counts."""
+    refresh_knowledge_caches()
     type_counts = knowledge_parser.get_type_counts()
 
     types = [
@@ -357,6 +367,7 @@ def clear_prompts():
 @api_endpoint
 def get_summary():
     """Generate session summary."""
+    refresh_knowledge_caches()
     import session_summarizer
     summary = session_summarizer.generate_structured_summary()
     return jsonify(summary)

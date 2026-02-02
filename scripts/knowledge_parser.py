@@ -76,10 +76,78 @@ KNOWLEDGE_FILES: List[KnowledgeFile] = [
     KnowledgeFile('gotchas.md', '## Gotcha:'),
 ]
 
+# Preview extraction heuristics
+_PREVIEW_SKIP_KEYS = {
+    'auto-captured', 'auto-detected', 'first seen', 'occurrences',
+    'command', 'files', 'files affected', 'status', 'fingerprint',
+    'established', 'used successfully', 'related', 'timestamp'
+}
+
+
+def _extract_preview(lines: List[str], max_preview_length: int) -> str:
+    """Extract a readable preview line from a knowledge entry."""
+    for line in lines[1:12]:
+        line = line.strip()
+        if not line or line.startswith('---'):
+            continue
+        if line.startswith('```'):
+            continue
+
+        # Handle bold label lines like "**Symptom:** text"
+        label_match = re.match(r'\*{1,2}([^*]+?)\*{1,2}:\s*(.+)', line)
+        if label_match:
+            key = label_match.group(1).strip().lower()
+            value = label_match.group(2).strip()
+            if key in _PREVIEW_SKIP_KEYS or not value:
+                continue
+            return value[:max_preview_length]
+
+        # Handle bullet lines
+        if line.startswith(('-', '*')):
+            value = line.lstrip('-*').strip()
+            if value:
+                return value[:max_preview_length]
+
+        return line[:max_preview_length]
+
+    # Fallback: collapse a few lines into a preview
+    fallback = " ".join([l.strip() for l in lines[1:5] if l.strip()])
+    return fallback[:max_preview_length] if fallback else ""
+
 
 # ============================================================================
 # Core Parsing Functions
 # ============================================================================
+
+def _iter_sections(content: str, section_prefix: str) -> List[tuple]:
+    """Iterate sections while ignoring headings inside fenced code blocks."""
+    lines = content.splitlines()
+    in_code_block = False
+    sections = []
+    current_title = None
+    current_lines: List[str] = []
+
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("```"):
+            in_code_block = not in_code_block
+
+        candidate = line.lstrip()
+        if not in_code_block and candidate.startswith(section_prefix):
+            if current_title is not None:
+                sections.append((current_title, current_lines))
+            current_title = candidate[len(section_prefix):].strip()
+            current_lines = []
+            continue
+
+        if current_title is not None:
+            current_lines.append(line)
+
+    if current_title is not None:
+        sections.append((current_title, current_lines))
+
+    return sections
+
 
 def parse_knowledge_file(
     filepath: Path,
@@ -103,28 +171,22 @@ def parse_knowledge_file(
         return []
 
     content = cache_manager.load_file_cached(str(filepath))
-    pattern = r'\n' + re.escape(section_prefix)
-    splits = re.split(pattern, content)
+    sections = _iter_sections(content, section_prefix)
 
     entries = []
     filename = filepath.name
 
-    for i, section_content in enumerate(splits[1:], 1):
-        lines = section_content.strip().split('\n')
-        title = lines[0].strip() if lines else 'Untitled'
+    for i, (title, body_lines) in enumerate(sections, 1):
+        lines = [title] + body_lines
 
-        # Extract preview (first non-empty, non-formatting line)
-        preview = ''
-        for line in lines[1:5]:
-            line = line.strip()
-            if line and not line.startswith('**') and not line.startswith('---'):
-                preview = line[:max_preview_length]
-                break
+        # Extract preview with markdown-aware heuristics
+        preview = _extract_preview(lines, max_preview_length)
+        section_content = "\n".join(lines).strip()
 
         entries.append(KnowledgeEntry(
             id=f'{filename.replace(".md", "")}_{i}',
             file=filename,
-            title=title,
+            title=title or 'Untitled',
             content=section_content[:max_content_length],
             preview=preview
         ))
@@ -262,8 +324,7 @@ def count_entries(filename: str, section_prefix: str) -> int:
     if not filepath.exists():
         return 0
 
-    content = cache_manager.load_file_cached(str(filepath))
-    return len(re.findall(section_prefix, content, re.IGNORECASE))
+    return len(parse_knowledge_file(filepath, section_prefix))
 
 
 def get_knowledge_stats() -> Dict[str, int]:
@@ -324,13 +385,8 @@ def extract_section_titles(
     if not filepath.exists():
         return []
 
-    content = cache_manager.load_file_cached(str(filepath))
-    pattern = section_prefix + r'(.+)'
-
-    return [
-        match.group(1).strip()
-        for match in re.finditer(pattern, content, re.IGNORECASE)
-    ]
+    entries = parse_knowledge_file(filepath, section_prefix)
+    return [e.title for e in entries if e.title]
 
 
 def get_knowledge_file_config(filename: str) -> Optional[KnowledgeFile]:

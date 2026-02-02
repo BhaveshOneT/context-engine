@@ -34,10 +34,10 @@ except ImportError:
     print("Install with: pip install sentence-transformers numpy")
     sys.exit(1)
 
-MEMORY_DIR = Path(os.environ.get("PROJECT_MEMORY_DIR", ".project-memory"))
+SCRIPT_DIR = Path(__file__).parent
+MEMORY_DIR = Path(os.environ.get("PROJECT_MEMORY_DIR", str(SCRIPT_DIR.parent)))
 if not MEMORY_DIR.exists():
-    # Try current directory's context-engine
-    MEMORY_DIR = Path(__file__).parent.parent
+    MEMORY_DIR = SCRIPT_DIR.parent
 
 VECTOR_DIR = MEMORY_DIR / "knowledge" / "vectors"
 
@@ -69,29 +69,24 @@ def generate_embeddings():
         if not filepath.exists():
             continue
 
-        # Use cached file loading and get section prefix from cache_manager
-        content = cache_manager.load_file_cached(str(filepath))
         section_prefix = cache_manager.get_section_prefix(filepath.name)
+        file_hash = cache_manager.hash_file_cached(str(filepath))
+        sections = list(cache_manager.parse_sections_cached(str(filepath), file_hash))
 
-        # Parse sections using the same logic as cache_manager
-        import re
-        pattern = r'\n' + re.escape(section_prefix)
-        splits = re.split(pattern, content)
-
-        sections = []
-        for section in splits[1:]:
-            header = section_prefix + section.split('\n')[0].strip()
-            full_content = section_prefix + section.strip()
-            sections.append({
+        formatted_sections = []
+        for section in sections:
+            title = section.get("title", "").strip()
+            header = f"{section_prefix} {title}".strip()
+            formatted_sections.append({
                 "header": header,
-                "content": full_content,
+                "content": section.get("content", ""),
             })
 
-        if not sections:
+        if not formatted_sections:
             print(f"  ⊘ {name}.md: No content to embed")
             continue
 
-        texts = [s["content"] for s in sections]
+        texts = [s["content"] for s in formatted_sections]
         embeddings = model.encode(texts, show_progress_bar=False)
 
         vector_data = {
@@ -102,7 +97,7 @@ def generate_embeddings():
                     "content": s["content"][:500],
                     "embedding": emb.tolist(),
                 }
-                for s, emb in zip(sections, embeddings)
+                for s, emb in zip(formatted_sections, embeddings)
             ],
         }
 
@@ -110,7 +105,7 @@ def generate_embeddings():
         with open(vector_file, "w") as f:
             json.dump(vector_data, f)
 
-        print(f"  ✓ {name}.md: {len(sections)} sections embedded")
+        print(f"  ✓ {name}.md: {len(formatted_sections)} sections embedded")
 
     print("\n✅ Embeddings generated and saved")
 

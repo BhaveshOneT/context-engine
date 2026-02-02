@@ -18,14 +18,6 @@ sys.path.insert(0, str(Path(__file__).parent))
 import config_loader
 import cache_manager
 
-try:
-    from sentence_transformers import SentenceTransformer
-    import numpy as np
-except ImportError:
-    print("❌ Error: Required libraries not installed")
-    print("   Install with: pip install sentence-transformers numpy")
-    sys.exit(1)
-
 
 # Get project memory directory
 MEMORY_DIR = Path(__file__).parent.parent
@@ -34,6 +26,16 @@ VECTORS_DIR = KNOWLEDGE_DIR / 'vectors'
 
 # Model for embeddings (load from config)
 MODEL_NAME = config_loader.get('semantic_search.model', 'BAAI/bge-large-en-v1.5')
+
+
+def load_embedding_deps():
+    """Lazy-load embedding dependencies."""
+    try:
+        from sentence_transformers import SentenceTransformer
+        import numpy as np
+        return SentenceTransformer, np
+    except ImportError:
+        return None, None
 
 
 def hash_file(file_path: Path) -> str:
@@ -81,24 +83,25 @@ def parse_sections(file_path: Path) -> List[Dict]:
     return list(sections_tuple)
 
 
-def embed_sections(sections: List[Dict], model: SentenceTransformer) -> List[np.ndarray]:
+def embed_sections(sections: List[Dict], model) -> List:
     """Generate embeddings for sections"""
     if not sections:
         return []
 
     texts = [s['content'] for s in sections]
-    embeddings = model.encode(texts, show_progress_bar=True)
-
-    return embeddings
+    return model.encode(texts, show_progress_bar=True)
 
 
-def save_embeddings(file_path: Path, sections: List[Dict], embeddings: List[np.ndarray]):
+def save_embeddings(file_path: Path, sections: List[Dict], embeddings):
     """Save embeddings to vectors directory"""
     # Create vectors directory if needed
     VECTORS_DIR.mkdir(exist_ok=True)
 
     # Save embeddings as .npy
     embedding_file = VECTORS_DIR / f'{file_path.stem}.npy'
+    _, np = load_embedding_deps()
+    if np is None:
+        raise ImportError("numpy not installed")
     np.save(embedding_file, embeddings)
 
     # Save metadata as .json
@@ -115,7 +118,7 @@ def save_embeddings(file_path: Path, sections: List[Dict], embeddings: List[np.n
         json.dump(metadata, f, indent=2)
 
 
-def check_and_embed_file(file_path: Path, model: SentenceTransformer, hash_cache: Dict[str, str], force: bool = False) -> bool:
+def check_and_embed_file(file_path: Path, model, hash_cache: Dict[str, str], force: bool = False) -> bool:
     """Check if file needs embedding and embed if necessary"""
     file_key = str(file_path.relative_to(MEMORY_DIR))
 
@@ -156,6 +159,12 @@ def check_and_embed_file(file_path: Path, model: SentenceTransformer, hash_cache
 
 def auto_embed_all(force: bool = False):
     """Auto-embed all knowledge files"""
+    SentenceTransformer, _ = load_embedding_deps()
+    if SentenceTransformer is None:
+        print("❌ Error: Required libraries not installed")
+        print("   Install with: pip install sentence-transformers numpy")
+        sys.exit(1)
+
     print("🔮 Auto-Embedder: Starting...")
     print()
 
@@ -264,6 +273,30 @@ def check_status():
         print()
 
 
+def needs_update() -> bool:
+    """Return True if any knowledge file needs embeddings."""
+    hash_cache = load_hash_cache()
+    knowledge_files = [
+        KNOWLEDGE_DIR / 'patterns.md',
+        KNOWLEDGE_DIR / 'failures.md',
+        KNOWLEDGE_DIR / 'decisions.md',
+        KNOWLEDGE_DIR / 'gotchas.md'
+    ]
+
+    for file_path in knowledge_files:
+        if not file_path.exists():
+            return True
+
+        file_key = str(file_path.relative_to(MEMORY_DIR))
+        current_hash = hash_file(file_path)
+        cached_hash = hash_cache.get(file_key, "")
+
+        if current_hash != cached_hash:
+            return True
+
+    return False
+
+
 def main():
     if len(sys.argv) < 2:
         check_status()
@@ -273,6 +306,12 @@ def main():
         auto_embed_all(force=True)
     elif sys.argv[1] == '--status':
         check_status()
+    elif sys.argv[1] == '--needs-update':
+        if needs_update():
+            print("needs-update")
+            sys.exit(2)
+        print("up-to-date")
+        sys.exit(0)
     else:
         print("Ultra-Planning V3: Auto-Embedder")
         print()
@@ -281,6 +320,7 @@ def main():
         print("  auto-embedder.py --embed      # Embed changed files")
         print("  auto-embedder.py --force      # Re-embed all files")
         print("  auto-embedder.py --status     # Check embedding status")
+        print("  auto-embedder.py --needs-update  # Exit 2 if embeddings need update")
         print()
         print("Automatically generates vector embeddings for semantic search.")
         print()

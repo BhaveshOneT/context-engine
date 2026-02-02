@@ -7,9 +7,9 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MEMORY_DIR="${PROJECT_MEMORY_DIR:-$(cd "$SCRIPT_DIR/.." && pwd)}"
-IDLE_THRESHOLD=300  # 5 minutes in seconds
+IDLE_THRESHOLD="${CE_IDLE_THRESHOLD_SECONDS:-300}"  # 5 minutes in seconds
 WATCH_MODE=0
-SLEEP_SECONDS=60
+SLEEP_SECONDS="${CE_IDLE_INTERVAL_SECONDS:-60}"
 
 if [ "${1:-}" = "--watch" ]; then
     WATCH_MODE=1

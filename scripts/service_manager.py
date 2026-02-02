@@ -15,6 +15,9 @@ from pathlib import Path
 from datetime import datetime
 from typing import Optional, Dict
 
+# Add scripts dir to path for imports
+sys.path.insert(0, str(Path(__file__).parent))
+import config_loader
 # Paths
 SCRIPT_DIR = Path(__file__).parent
 MEMORY_DIR = SCRIPT_DIR.parent
@@ -224,6 +227,7 @@ def create_auto_session() -> str:
     if init_script.exists():
         env = os.environ.copy()
         env['PROJECT_MEMORY_DIR'] = str(MEMORY_DIR)
+        env['CE_FILE_WATCHER_MANAGED'] = '1'
         subprocess.run(
             ['bash', str(init_script), session_name],
             cwd=str(MEMORY_DIR),
@@ -376,12 +380,28 @@ def start_service(service: str, config: Dict) -> bool:
     log_file = get_log_file(service)
     try:
         with open(log_file, 'w') as log:
+            env = os.environ.copy()
+            if service == 'idle_extractor':
+                idle_minutes = config_loader.get('monitoring.idle_threshold_minutes', 5)
+                interval_seconds = config_loader.get('monitoring.idle_check_interval_seconds', 60)
+                try:
+                    idle_seconds = int(float(idle_minutes) * 60)
+                except (TypeError, ValueError):
+                    idle_seconds = 300
+                try:
+                    interval_seconds = int(float(interval_seconds))
+                except (TypeError, ValueError):
+                    interval_seconds = 60
+                env['CE_IDLE_THRESHOLD_SECONDS'] = str(max(idle_seconds, 60))
+                env['CE_IDLE_INTERVAL_SECONDS'] = str(max(interval_seconds, 5))
+
             process = subprocess.Popen(
                 command,
                 stdout=log,
                 stderr=subprocess.STDOUT,
                 start_new_session=True,
-                cwd=str(MEMORY_DIR)
+                cwd=str(MEMORY_DIR),
+                env=env
             )
 
         write_pid(service, process.pid)

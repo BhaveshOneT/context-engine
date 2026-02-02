@@ -1,6 +1,6 @@
 # Knowledge Index
 
-**Last updated:** 2026-02-02 14:32
+**Last updated:** 2026-02-02 14:46
 **Auto-generated** by knowledge-indexer.py _(do not edit manually)_
 
 ---
@@ -41,40 +41,40 @@
 
 ## Most Common Keywords
 
-- **test** (2 in failures.md)
-- **capture** (2 in failures.md)
 - **recent** (2 in failures.md)
-- **last** (2 in failures.md)
-- **once** (2 in failures.md)
-- **command** (2 in failures.md)
-- **symptom** (2 in failures.md)
-- **most** (2 in failures.md)
-- **valueerror** (2 in failures.md)
-- **detected** (2 in failures.md)
-- **add** (2 in failures.md)
-- **needs** (2 in failures.md)
-- **error** (2 in failures.md)
-- **python3** (2 in failures.md)
-- **raise** (2 in failures.md)
-- **stack** (2 in failures.md)
-- **fill** (2 in failures.md)
-- **captured** (2 in failures.md)
 - **solution** (2 in failures.md)
-- **traceback** (2 in failures.md)
-- **call** (2 in failures.md)
+- **capture** (2 in failures.md)
 - **status** (2 in failures.md)
-- **fixed** (2 in failures.md)
-- **auto** (2 in failures.md)
-- **fingerprint** (2 in failures.md)
-- **resolve** (2 in failures.md)
+- **symptom** (2 in failures.md)
 - **2026** (2 in failures.md)
+- **fixed** (2 in failures.md)
+- **valueerror** (2 in failures.md)
+- **last** (2 in failures.md)
+- **command** (2 in failures.md)
 - **trace** (2 in failures.md)
+- **add** (2 in failures.md)
+- **most** (2 in failures.md)
+- **stack** (2 in failures.md)
+- **raise** (2 in failures.md)
+- **captured** (2 in failures.md)
+- **resolve** (2 in failures.md)
+- **traceback** (2 in failures.md)
+- **needs** (2 in failures.md)
+- **test** (2 in failures.md)
+- **auto** (2 in failures.md)
+- **error** (2 in failures.md)
+- **detected** (2 in failures.md)
+- **call** (2 in failures.md)
+- **once** (2 in failures.md)
+- **fill** (2 in failures.md)
+- **fingerprint** (2 in failures.md)
+- **python3** (2 in failures.md)
 - **def5a93cab7c** (1 in failures.md)
-- **module** (1 in failures.md)
 - **line** (1 in failures.md)
-- **string** (1 in failures.md)
 - **cc44c2445eb6** (1 in failures.md)
+- **module** (1 in failures.md)
 - **file** (1 in failures.md)
+- **string** (1 in failures.md)
 
 ---
 

@@ -26,6 +26,9 @@ monitoring:
   # Idle threshold for triggering extraction (minutes)
   idle_threshold_minutes: 5
 
+  # Idle check interval (seconds)
+  idle_check_interval_seconds: 30
+
   # File watcher debounce (seconds)
   file_debounce_seconds: 2
 
@@ -98,6 +101,9 @@ knowledge:
 
   # Auto-generate embeddings on knowledge changes
   auto_generate_embeddings: true
+
+  # Run embedding generation in background to keep idle cycles fast
+  embed_async: true
 
   # Keyword extraction minimum word length
   keyword_min_length: 3

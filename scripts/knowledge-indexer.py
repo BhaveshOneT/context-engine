@@ -8,6 +8,7 @@ import os
 import sys
 import re
 import json
+import hashlib
 from pathlib import Path
 from datetime import datetime
 from collections import defaultdict
@@ -31,6 +32,48 @@ except ImportError:
 MEMORY_DIR = Path(__file__).parent.parent
 KNOWLEDGE_DIR = MEMORY_DIR / 'knowledge'
 VECTORS_DIR = KNOWLEDGE_DIR / 'vectors'
+INDEX_STATE_FILE = KNOWLEDGE_DIR / '.index_state.json'
+
+
+def _knowledge_files() -> List[Path]:
+    return [
+        KNOWLEDGE_DIR / 'patterns.md',
+        KNOWLEDGE_DIR / 'failures.md',
+        KNOWLEDGE_DIR / 'decisions.md',
+        KNOWLEDGE_DIR / 'gotchas.md'
+    ]
+
+
+def compute_index_hash() -> str:
+    """Compute a stable hash for all knowledge files."""
+    hasher = hashlib.sha256()
+    for file_path in _knowledge_files():
+        hasher.update(file_path.name.encode('utf-8'))
+        if file_path.exists():
+            file_hash = cache_manager.hash_file_cached(str(file_path))
+            hasher.update(file_hash.encode('utf-8'))
+        else:
+            hasher.update(b'missing')
+    return hasher.hexdigest()
+
+
+def load_index_state() -> Dict[str, str]:
+    if not INDEX_STATE_FILE.exists():
+        return {}
+    try:
+        with open(INDEX_STATE_FILE, 'r') as f:
+            return json.load(f) or {}
+    except Exception:
+        return {}
+
+
+def save_index_state(index_hash: str):
+    state = {
+        'hash': index_hash,
+        'updated_at': datetime.now().isoformat()
+    }
+    with open(INDEX_STATE_FILE, 'w') as f:
+        json.dump(state, f, indent=2)
 
 
 def _load_sections(file_path: Path) -> List[Dict]:
@@ -278,8 +321,15 @@ def format_cross_references(cross_refs: List[Dict]) -> str:
     return '\n'.join(lines)
 
 
-def generate_index():
+def generate_index(if_changed: bool = False):
     """Generate knowledge/index.md"""
+    if if_changed:
+        current_hash = compute_index_hash()
+        state = load_index_state()
+        if state.get('hash') == current_hash:
+            print("📇 Knowledge Indexer: No changes detected. Skipping.")
+            return
+
     print("📇 Knowledge Indexer: Generating index.md...")
     print()
 
@@ -393,6 +443,7 @@ _To regenerate: `python3 scripts/knowledge-indexer.py`_
     with open(index_file, 'w') as f:
         f.write(index_content)
 
+    save_index_state(compute_index_hash())
     print(f"✅ Index generated: {index_file}")
     print()
 
@@ -402,8 +453,9 @@ def main():
         print("Ultra-Planning V3: Knowledge Indexer")
         print()
         print("Usage:")
-        print("  knowledge-indexer.py          # Generate index")
-        print("  knowledge-indexer.py --help   # Show this help")
+        print("  knowledge-indexer.py               # Generate index")
+        print("  knowledge-indexer.py --if-changed  # Skip if no changes")
+        print("  knowledge-indexer.py --help        # Show this help")
         print()
         print("Automatically generates knowledge/index.md with:")
         print("  • Statistics on all knowledge entries")
@@ -412,6 +464,10 @@ def main():
         print()
         print("Optional: pip install numpy (for cross-references)")
         sys.exit(0)
+
+    if len(sys.argv) > 1 and sys.argv[1] == '--if-changed':
+        generate_index(if_changed=True)
+        return
 
     generate_index()
 

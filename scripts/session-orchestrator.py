@@ -4,6 +4,7 @@ Ultra-Planning V3: Session Orchestrator
 Master controller coordinating all automation modules
 """
 
+import os
 import sys
 import time
 import subprocess
@@ -17,6 +18,12 @@ MEMORY_DIR = Path(__file__).parent.parent
 SCRIPTS_DIR = MEMORY_DIR / 'scripts'
 ACTIVE_DIR = MEMORY_DIR / 'active'
 HANDOFFS_DIR = MEMORY_DIR / 'handoffs'
+PID_DIR = MEMORY_DIR / '.pids'
+LOG_DIR = MEMORY_DIR / '.logs'
+
+# Add scripts dir to path for imports
+sys.path.insert(0, str(SCRIPTS_DIR))
+import config_loader
 
 
 class SessionOrchestrator:
@@ -26,8 +33,8 @@ class SessionOrchestrator:
         self.file_watcher_process: Optional[subprocess.Popen] = None
         self.task_name: Optional[str] = None
 
-    def _run_script(self, script_name: str, args: list = None, timeout: int = None) -> Tuple[bool, str]:
-        """Run a script and return (success, output/message)"""
+    def _run_script(self, script_name: str, args: list = None, timeout: int = None) -> Tuple[bool, str, int]:
+        """Run a script and return (success, output/message, returncode)"""
         cmd = [sys.executable, str(SCRIPTS_DIR / script_name)]
         if args:
             cmd.extend(args)
@@ -40,22 +47,22 @@ class SessionOrchestrator:
                 text=True,
                 timeout=timeout
             )
-            return (result.returncode == 0, result.stdout)
+            return (result.returncode == 0, result.stdout, result.returncode)
         except subprocess.TimeoutExpired:
-            return (False, f"{script_name} timed out")
+            return (False, f"{script_name} timed out", 124)
         except Exception as e:
-            return (False, f"{script_name} failed: {e}")
+            return (False, f"{script_name} failed: {e}", 1)
 
     def _inject_templates_task(self, task_name: str) -> Tuple[bool, str]:
         """Run template injection (for parallel execution)"""
-        success, output = self._run_script('template-injector.py', [task_name])
+        success, output, _ = self._run_script('template-injector.py', [task_name])
         if success:
             return (True, output)
         return (False, "Template injection had issues (continuing anyway)")
 
     def _check_embeddings_task(self) -> Tuple[bool, str]:
         """Check embeddings status (for parallel execution)"""
-        success, output = self._run_script('auto-embedder.py', ['--status'], timeout=5)
+        success, output, _ = self._run_script('auto-embedder.py', ['--status'], timeout=5)
         if not success:
             return (False, "Auto-embedder not available (install: pip install sentence-transformers numpy)")
         if 'Needs embedding' in output:
@@ -126,6 +133,14 @@ class SessionOrchestrator:
 
     def _start_file_watcher(self):
         """Start the file watcher background process"""
+        if os.environ.get("CE_FILE_WATCHER_MANAGED") == "1":
+            print("   File watcher managed by service manager (skipping)")
+            return
+
+        if config_loader.get('session.auto_start_watcher', True) is False:
+            print("   File watcher disabled by config")
+            return
+
         try:
             self.file_watcher_process = subprocess.Popen(
                 [sys.executable, str(SCRIPTS_DIR / 'file-watcher.py')],
@@ -145,6 +160,48 @@ class SessionOrchestrator:
             print(f"   File watcher not available: {e}")
             self.file_watcher_process = None
 
+    def _read_pid(self, pid_file: Path) -> Optional[int]:
+        if not pid_file.exists():
+            return None
+        try:
+            return int(pid_file.read_text().strip())
+        except Exception:
+            return None
+
+    def _pid_running(self, pid: int) -> bool:
+        try:
+            os.kill(pid, 0)
+            return True
+        except OSError:
+            return False
+
+    def _start_auto_embedder_async(self) -> bool:
+        """Start auto-embedder in background (non-blocking)."""
+        PID_DIR.mkdir(exist_ok=True)
+        LOG_DIR.mkdir(exist_ok=True)
+        pid_file = PID_DIR / 'auto_embedder.pid'
+
+        existing_pid = self._read_pid(pid_file)
+        if existing_pid and self._pid_running(existing_pid):
+            print("   Auto-embedder already running")
+            return False
+        if existing_pid and not self._pid_running(existing_pid):
+            pid_file.unlink(missing_ok=True)
+
+        log_file = LOG_DIR / 'auto_embedder.log'
+        with open(log_file, 'w') as log:
+            process = subprocess.Popen(
+                [sys.executable, str(SCRIPTS_DIR / 'auto-embedder.py'), '--embed'],
+                cwd=MEMORY_DIR,
+                stdout=log,
+                stderr=subprocess.STDOUT,
+                start_new_session=True
+            )
+
+        pid_file.write_text(str(process.pid))
+        print("   Auto-embedder started in background")
+        return True
+
     def on_idle(self):
         """Handle idle session - trigger extraction"""
         print()
@@ -155,7 +212,7 @@ class SessionOrchestrator:
 
         # Check if extraction needed
         print("Checking if extraction needed...")
-        success, output = self._run_script('smart-prompt-helper.py', ['--check'])
+        success, output, _ = self._run_script('smart-prompt-helper.py', ['--check'])
         if success:
             print(output)
         else:
@@ -164,21 +221,38 @@ class SessionOrchestrator:
 
         # Update knowledge index
         print("Updating knowledge index...")
-        success, _ = self._run_script('knowledge-indexer.py', timeout=30)
-        print("   Done" if success else "   Index update had issues")
+        auto_index = config_loader.get('knowledge.auto_update_index', True)
+        if auto_index:
+            success, output, _ = self._run_script('knowledge-indexer.py', ['--if-changed'], timeout=30)
+            if success:
+                print(output.strip() or "   Done")
+            else:
+                print("   Index update had issues")
+        else:
+            print("   Skipped (auto_update_index disabled)")
         print()
 
         # Check embeddings
         print("Checking vector embeddings...")
-        success, output = self._run_script('auto-embedder.py', ['--embed'], timeout=60)
-        if not success:
-            print("   Auto-embedder not available (optional)")
-        elif 'up to date' in output.lower():
-            print("   Embeddings current")
-        elif 'Error' not in output:
-            print("   Embeddings updated")
+        auto_embed = config_loader.get('knowledge.auto_generate_embeddings', True)
+        if not auto_embed:
+            print("   Skipped (auto_generate_embeddings disabled)")
         else:
-            print("   Embeddings not available (optional)")
+            needs_update, output, code = self._run_script('auto-embedder.py', ['--needs-update'], timeout=10)
+            if code == 0:
+                print("   Embeddings current")
+            elif code == 2:
+                if config_loader.get('knowledge.embed_async', True):
+                    self._start_auto_embedder_async()
+                else:
+                    print("   Embeddings need update, running auto-embedder...")
+                    success, output, _ = self._run_script('auto-embedder.py', ['--embed'], timeout=120)
+                    if success:
+                        print("   Embeddings updated")
+                    else:
+                        print("   Auto-embedder not available (optional)")
+            else:
+                print("   Auto-embedder not available (optional)")
 
         print()
         print("=" * 50)

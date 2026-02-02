@@ -14,6 +14,7 @@ from typing import Optional
 # Add scripts dir to path for imports
 sys.path.insert(0, str(Path(__file__).parent))
 import cache_manager
+import config_loader
 
 try:
     from watchdog.observers import Observer
@@ -31,7 +32,10 @@ KNOWLEDGE_DIR = MEMORY_DIR / 'knowledge'
 LEDGERS_DIR = MEMORY_DIR / 'ledgers'
 
 # Debounce settings
-DEBOUNCE_SECONDS = 2
+try:
+    DEBOUNCE_SECONDS = float(config_loader.get('monitoring.file_debounce_seconds', 2))
+except (TypeError, ValueError):
+    DEBOUNCE_SECONDS = 2.0
 
 
 class SmartFileWatcher(FileSystemEventHandler):

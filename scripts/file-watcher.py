@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Ultra-Planning V3: File Watcher
+Context Engine: File Watcher
 Real-time monitoring of file changes with intelligent reactions
 """
 
@@ -206,7 +206,7 @@ def start_watching(watch_dirs: list = None):
 
 def main():
     if len(sys.argv) > 1 and sys.argv[1] == '--help':
-        print("Ultra-Planning V3: File Watcher")
+        print("Context Engine: File Watcher")
         print()
         print("Usage:")
         print("  file-watcher.py              # Start watching (default dirs)")

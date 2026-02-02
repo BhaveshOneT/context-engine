@@ -8,9 +8,21 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MEMORY_DIR="${PROJECT_MEMORY_DIR:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 IDLE_THRESHOLD=300  # 5 minutes in seconds
+WATCH_MODE=0
+SLEEP_SECONDS=60
 
-echo "🤖 Ultra-Planning V3: Daemon Learning Extractor"
+if [ "${1:-}" = "--watch" ]; then
+    WATCH_MODE=1
+    if [ -n "${2:-}" ] && [[ "${2:-}" =~ ^[0-9]+$ ]]; then
+        SLEEP_SECONDS="$2"
+    fi
+fi
+
+echo "🤖 Context Engine: Daemon Learning Extractor"
 echo "   Idle threshold: ${IDLE_THRESHOLD}s (5 minutes)"
+if [ "$WATCH_MODE" -eq 1 ]; then
+    echo "   Watch mode: ${SLEEP_SECONDS}s interval"
+fi
 echo ""
 
 # Function to check if session is idle
@@ -167,7 +179,7 @@ EOF
 }
 
 # Main execution
-main() {
+run_once() {
     if check_idle; then
         echo ""
         echo "✓ Session idle >5 min. Starting extraction..."
@@ -176,7 +188,9 @@ main() {
         # V3: Use orchestrator for intelligent extraction
         if command -v python3 &> /dev/null && [ -f "$MEMORY_DIR/scripts/session-orchestrator.py" ]; then
             echo "🤖 Using V3 orchestrator for smart extraction..."
-            python3 "$MEMORY_DIR/scripts/session-orchestrator.py" idle
+            if ! python3 "$MEMORY_DIR/scripts/session-orchestrator.py" idle; then
+                echo "   ⚠️  Orchestrator failed; continuing"
+            fi
         else
             # V2 fallback
             echo "⚠️  V3 not available, using V2 extraction..."
@@ -199,5 +213,11 @@ main() {
     fi
 }
 
-# Run main function
-main "$@"
+if [ "$WATCH_MODE" -eq 1 ]; then
+    while true; do
+        run_once
+        sleep "$SLEEP_SECONDS"
+    done
+else
+    run_once "$@"
+fi

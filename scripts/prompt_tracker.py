@@ -13,6 +13,7 @@ Inspired by claude-mem's UserPromptSubmit hook.
 """
 
 import sys
+import re
 import yaml
 import argparse
 from pathlib import Path
@@ -34,6 +35,7 @@ ACTIVE_DIR = MEMORY_DIR / 'active'
 PROMPTS_LOG = ACTIVE_DIR / '.prompts_log.yaml'
 PROMPTS_HISTORY = MEMORY_DIR / 'prompts_history.yaml'
 SESSION_ID_FILE = ACTIVE_DIR / '.session_id'
+TASK_PLAN_FILE = ACTIVE_DIR / 'task_plan.md'
 
 
 # ============================================================================
@@ -44,6 +46,19 @@ def get_current_session_id() -> str:
     """Get current session ID from active session file"""
     if SESSION_ID_FILE.exists():
         return SESSION_ID_FILE.read_text().strip()
+    # Fallback: read from task_plan.md if available
+    if TASK_PLAN_FILE.exists():
+        try:
+            content = TASK_PLAN_FILE.read_text()
+            match = re.search(r'^\*\*Session ID:\*\*\s*(.+)$', content, re.MULTILINE)
+            if match:
+                session_id = match.group(1).strip()
+                if session_id:
+                    # Persist for future prompt tracking
+                    SESSION_ID_FILE.write_text(session_id)
+                    return session_id
+        except Exception:
+            pass
     return f"sess_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
 

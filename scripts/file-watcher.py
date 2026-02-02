@@ -148,21 +148,57 @@ class SmartFileWatcher(FileSystemEventHandler):
 
         # Update progress percentage
         progress_pct = int((completed / total) * 100) if total > 0 else 0
+        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        status_value = "complete" if total > 0 and completed >= total else "in_progress"
 
-        # Update "Current Status" section
+        # Update "Last Updated" in header
+        content = re.sub(
+            r'^\*\*Last Updated:\*\* .+$',
+            f'**Last Updated:** {timestamp}',
+            content,
+            flags=re.MULTILINE
+        )
+
+        # Update "Current Status" section (legacy format)
         status_pattern = r'(## Current Status\n\n)(.+?)(\n\n##|\Z)'
-        status_replacement = f'''\\1**Progress:** {completed}/{total} phases ({progress_pct}%)
+        if re.search(status_pattern, content, flags=re.DOTALL):
+            status_replacement = f'''\\1**Progress:** {completed}/{total} phases ({progress_pct}%)
 **Current Phase:** {current_phase if current_phase else "Starting..."}
-**Last Updated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\\3'''
-
-        content = re.sub(status_pattern, status_replacement, content, flags=re.DOTALL)
+**Last Updated:** {timestamp}\\3'''
+            content = re.sub(status_pattern, status_replacement, content, flags=re.DOTALL)
+        else:
+            # Update "Current Phase" section (new format)
+            content = re.sub(
+                r'^## Current Phase:.*$',
+                f'## Current Phase: {current_phase if current_phase else "Starting..."}',
+                content,
+                flags=re.MULTILINE
+            )
+            content = re.sub(
+                r'^\*\*Progress:\*\*.*$',
+                f'**Progress:** {progress_pct}% complete',
+                content,
+                flags=re.MULTILINE
+            )
+            content = re.sub(
+                r'^\*\*Status:\*\*.*$',
+                f'**Status:** {status_value}',
+                content,
+                flags=re.MULTILINE
+            )
 
         # Update "What's Complete" section with checkmarks
         if completed > 0:
-            complete_pattern = r'(## What\'s Complete\n\n)(.+?)(\n\n##|\Z)'
             completed_items = [f"- Phase {i+1}" for i in range(completed)]
-            complete_replacement = f"\\1{chr(10).join(completed_items)}\\3"
-            content = re.sub(complete_pattern, complete_replacement, content, flags=re.DOTALL)
+            complete_pattern = r'(## What\'s Complete\n\n)(.+?)(\n\n##|\Z)'
+            if re.search(complete_pattern, content, flags=re.DOTALL):
+                complete_replacement = f"\\1{chr(10).join(completed_items)}\\3"
+                content = re.sub(complete_pattern, complete_replacement, content, flags=re.DOTALL)
+            else:
+                complete_pattern = r'(## Completed[^\n]*\n\n)(.+?)(\n\n##|\Z)'
+                if re.search(complete_pattern, content, flags=re.DOTALL):
+                    complete_replacement = f"\\1{chr(10).join(completed_items)}\\3"
+                    content = re.sub(complete_pattern, complete_replacement, content, flags=re.DOTALL)
 
         # Write back (clear cache first since we're writing)
         cache_manager.clear_file_cache()

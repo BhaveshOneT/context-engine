@@ -19,6 +19,7 @@ sessions.db-wal
 # Vector embeddings (large, can be regenerated)
 knowledge/vectors/*.vec
 knowledge/vectors/*.json
+knowledge/vectors/*.npy
 knowledge/.index_state.json
 
 # TLDR code analysis (can be regenerated)

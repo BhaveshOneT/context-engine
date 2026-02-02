@@ -51,9 +51,25 @@ echo ""
 
 # Verify installations
 echo "3/3: Verifying installations..."
-python3 -c "import watchdog; print('   ✓ watchdog version:', watchdog.__version__)"
-python3 -c "import sentence_transformers; print('   ✓ sentence-transformers OK')"
-python3 -c "import numpy; print('   ✓ numpy version:', numpy.__version__)"
+python3 - <<'PY'
+import importlib.metadata as md
+import watchdog
+version = getattr(watchdog, "__version__", None)
+if not version:
+    try:
+        version = md.version("watchdog")
+    except Exception:
+        version = "unknown"
+print("   ✓ watchdog version:", version)
+PY
+python3 - <<'PY'
+import sentence_transformers
+print("   ✓ sentence-transformers OK")
+PY
+python3 - <<'PY'
+import numpy as np
+print("   ✓ numpy version:", np.__version__)
+PY
 echo ""
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

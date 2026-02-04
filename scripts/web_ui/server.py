@@ -18,6 +18,7 @@ import sys
 import re
 import sqlite3
 import logging
+import json
 from pathlib import Path
 from datetime import datetime
 from functools import wraps
@@ -48,6 +49,8 @@ logger = logging.getLogger(__name__)
 MEMORY_DIR = SCRIPT_DIR.parent.parent
 SESSIONS_DB = MEMORY_DIR / 'sessions.db'
 HANDOFFS_DIR = MEMORY_DIR / 'handoffs'
+ACTIVE_DIR = MEMORY_DIR / 'active'
+EXTRACTION_STATUS_FILE = ACTIVE_DIR / '.extraction_status.json'
 
 # Flask app
 app = Flask(__name__, template_folder='templates')
@@ -97,6 +100,17 @@ def refresh_knowledge_caches():
     """Ensure knowledge reads reflect latest filesystem state."""
     cache_manager.clear_file_cache()
     cache_manager.clear_parsed_cache()
+
+
+def read_extraction_status():
+    """Read auto extraction status metadata."""
+    if not EXTRACTION_STATUS_FILE.exists():
+        return {'status': 'never'}
+    try:
+        with open(EXTRACTION_STATUS_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return {'status': 'error'}
 
 
 # ============================================================================
@@ -357,6 +371,26 @@ def clear_prompts():
     import prompt_tracker
     prompt_tracker.clear_prompts_log()
     return jsonify({'status': 'cleared'})
+
+
+# ============================================================================
+# Routes - Auto Extraction
+# ============================================================================
+
+@app.route('/api/extraction-status')
+@api_endpoint
+def get_extraction_status():
+    """Get latest auto extraction status."""
+    return jsonify(read_extraction_status())
+
+
+@app.route('/api/extract', methods=['POST'])
+@api_endpoint
+def run_extraction():
+    """Run auto extraction immediately."""
+    import auto_extractor
+    status = auto_extractor.extract(dry_run=False)
+    return jsonify(status)
 
 
 # ============================================================================

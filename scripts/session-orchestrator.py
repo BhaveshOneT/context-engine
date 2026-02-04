@@ -12,6 +12,10 @@ from pathlib import Path
 from typing import Optional, Tuple
 from concurrent.futures import ThreadPoolExecutor
 
+# Add scripts dir to path for imports
+sys.path.insert(0, str(Path(__file__).parent))
+import config_loader
+
 # Get project memory directory
 MEMORY_DIR = Path(__file__).parent.parent
 SCRIPTS_DIR = MEMORY_DIR / 'scripts'
@@ -161,6 +165,19 @@ class SessionOrchestrator:
         else:
             print(f"   Warning: Extraction check failed")
         print()
+
+        # Auto-extract knowledge from context/task plan
+        if config_loader.get('auto_extraction.run_on_idle', True):
+            print("Running auto extraction...")
+            success, output = self._run_script('auto_extractor.py', [])
+            if success:
+                print(output)
+            else:
+                print("   Warning: Auto extraction failed")
+            print()
+        else:
+            print("Auto extraction disabled for idle runs")
+            print()
 
         # Update knowledge index
         print("Updating knowledge index...")

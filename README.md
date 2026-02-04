@@ -60,6 +60,7 @@
 - Background daemon auto-extracts learnings when idle >5 min
 - **Zero manual effort** - learning happens while you get coffee
 - Knowledge automatically flows from volatile → permanent
+- Auto extraction generates draft entries that can be reviewed later (optional)
 
 ### 2. **90% Token Savings** (YAML Handoffs)
 - Session state in YAML (250 tokens) vs Markdown (2,500 tokens)

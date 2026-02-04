@@ -183,6 +183,21 @@ main() {
             extract_patterns
             extract_failures
             extract_decisions
+            if command -v python3 &> /dev/null && [ -f "$MEMORY_DIR/scripts/auto_extractor.py" ]; then
+                if python3 - <<PY
+import os
+import sys
+from pathlib import Path
+memory_dir = Path(os.environ.get("PROJECT_MEMORY_DIR", "${MEMORY_DIR}"))
+sys.path.insert(0, str(memory_dir / "scripts"))
+import config_loader
+sys.exit(0 if config_loader.get("auto_extraction.run_on_idle", True) else 1)
+PY
+                then
+                    echo "🤖 Running auto extractor..."
+                    python3 "$MEMORY_DIR/scripts/auto_extractor.py" || true
+                fi
+            fi
             update_index
             create_handoff
 
@@ -199,5 +214,12 @@ main() {
     fi
 }
 
-# Run main function
-main "$@"
+# Run main function (single pass or watch loop)
+if [[ "$1" == "--watch" ]]; then
+    while true; do
+        main
+        sleep 30
+    done
+else
+    main "$@"
+fi

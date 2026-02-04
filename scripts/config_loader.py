@@ -44,6 +44,13 @@ def load_config() -> Dict[str, Any]:
             'phase_trigger': 1,
             'error_trigger': 2
         },
+        'auto_extraction': {
+            'scope': 'balanced',
+            'draft_mode': True,
+            'run_on_idle': True,
+            'run_on_file_change': True,
+            'min_discoveries': 2
+        },
         'monitoring': {
             'idle_threshold_minutes': 5,
             'file_debounce_seconds': 2

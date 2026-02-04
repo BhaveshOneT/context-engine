@@ -14,6 +14,8 @@ from typing import Optional
 # Add scripts dir to path for imports
 sys.path.insert(0, str(Path(__file__).parent))
 import cache_manager
+import config_loader
+import auto_extractor
 
 try:
     from watchdog.observers import Observer
@@ -39,6 +41,8 @@ class SmartFileWatcher(FileSystemEventHandler):
 
     def __init__(self):
         self.last_update_times = {}  # file_path -> last_update_time
+        self.last_discovery_count = 0
+        self.last_decision_count = 0
 
     def _should_process(self, file_path: Path) -> bool:
         """Check if enough time has passed since last update (debounce)"""
@@ -108,6 +112,9 @@ class SmartFileWatcher(FileSystemEventHandler):
         self.update_continuity_ledger(completed_count, total_count, current_phase)
         print(f"Progress tracked: {completed_count}/{total_count} phases completed")
 
+        # Check decisions for auto extraction
+        self.handle_decisions_update(content)
+
     def handle_context_update(self, file_path: Path):
         """React to context.md changes - check for extraction triggers"""
         content = cache_manager.load_file_cached(str(file_path))
@@ -121,15 +128,40 @@ class SmartFileWatcher(FileSystemEventHandler):
             len(re.findall(r'(Discovered|Found|Learned):', content, re.IGNORECASE))
         )
 
-        # Check if extraction should be triggered (2-action rule)
-        if discoveries >= 2:
-            print(f"2+ discoveries found ({discoveries}), ready for extraction")
-            print("   Run: python3 scripts/smart-prompt-helper.py --create")
+        min_discoveries = config_loader.get('auto_extraction.min_discoveries', 2)
+        if discoveries < min_discoveries:
+            return
+
+        if discoveries <= self.last_discovery_count:
+            return
+
+        self.last_discovery_count = discoveries
+        self.run_auto_extractor(reason=f"{discoveries} discoveries documented")
 
     def handle_knowledge_update(self, file_path: Path):
         """React to knowledge/ file changes"""
         print(f"Knowledge updated: {file_path.name}")
         print("   (Auto-embedder and indexer will process this)")
+
+    def handle_decisions_update(self, content: str):
+        decision_count = len(re.findall(r'-\s*\*\*Decision:\*\*\s*(.+)', content))
+        if decision_count <= self.last_decision_count:
+            return
+        self.last_decision_count = decision_count
+        self.run_auto_extractor(reason=f"{decision_count} decisions documented")
+
+    def run_auto_extractor(self, reason: str):
+        if not config_loader.get('auto_extraction.run_on_file_change', True):
+            return
+
+        print(f"Auto extraction triggered: {reason}")
+        try:
+            status = auto_extractor.extract(dry_run=False)
+            counts = status.get('counts', {})
+            summary = ", ".join([f"{k}:{v}" for k, v in counts.items()])
+            print(f"Auto extraction complete ({summary})")
+        except Exception as e:
+            print(f"Auto extraction failed: {e}")
 
     def update_continuity_ledger(self, completed: int, total: int, current_phase: Optional[str]):
         """Update the continuity ledger with progress"""
@@ -214,7 +246,7 @@ def main():
         print()
         print("Monitors file changes and triggers automatic actions:")
         print("  • task_plan.md updates → continuity ledger updated")
-        print("  • context.md changes → extraction readiness checked")
+        print("  • context.md changes → auto extraction (configurable)")
         print("  • knowledge/ changes → flagged for re-indexing")
         print()
         print("Requires: pip install watchdog")

@@ -80,6 +80,23 @@ extraction:
   # Trigger on N errors documented
   error_trigger: 2
 
+# Auto Extraction Settings
+auto_extraction:
+  # Extraction scope: strict | balanced | aggressive
+  scope: 'balanced'
+
+  # Write draft markers on auto-extracted entries
+  draft_mode: true
+
+  # Run auto extraction on idle
+  run_on_idle: true
+
+  # Run auto extraction on file change
+  run_on_file_change: true
+
+  # Minimum discoveries required to trigger on file change
+  min_discoveries: 2
+
 # Session Settings
 session:
   # Auto-start file watcher

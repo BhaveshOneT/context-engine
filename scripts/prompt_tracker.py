@@ -70,7 +70,7 @@ def record_prompt(
     prompt_text: str,
     session_id: Optional[str] = None,
     metadata: Optional[Dict] = None
-) -> Dict:
+) -> Optional[Dict]:
     """
     Record a user prompt with metadata.
 
@@ -82,6 +82,9 @@ def record_prompt(
     Returns:
         The recorded prompt entry
     """
+    if not prompt_text or not prompt_text.strip():
+        return None
+
     max_length = config_loader.get('prompt_tracking.max_prompt_length', 500)
 
     entry = {
@@ -297,6 +300,9 @@ Examples:
 
     if args.command == 'record':
         entry = record_prompt(args.prompt, session_id=args.session)
+        if not entry:
+            print("No prompt text provided")
+            return
         print(f"Recorded prompt at {entry['timestamp']}")
         print(f"  Words: {entry['word_count']}, Chars: {entry['char_count']}")
 

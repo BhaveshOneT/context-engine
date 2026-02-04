@@ -85,8 +85,12 @@ case "$1" in
     ;;
 
   setup)
-    # Setup Claude Code hooks
-    python3 "$CE_ROOT/scripts/setup_hooks.py" "${@:2}"
+    # Full one-command setup (deps + hooks + registry + embeddings)
+    if [ "${2:-}" = "--hooks-only" ] || [ "${2:-}" = "--hooks" ]; then
+      python3 "$CE_ROOT/scripts/setup_hooks.py" "${@:3}"
+    else
+      "$CE_ROOT/scripts/bootstrap.sh" "${@:2}"
+    fi
     ;;
 
   help|--help|-h)
@@ -95,7 +99,7 @@ case "$1" in
     echo "Usage: ./ce <command> [options]"
     echo ""
     echo "Quick Start:"
-    echo "  ./ce setup         One-time: configure Claude Code hooks"
+    echo "  ./ce setup         One-time: install deps + hooks + registry + embeddings"
     echo "  ./ce activate      Start everything (100% automatic)"
     echo "  ./ce deactivate    Stop & archive session"
     echo ""
@@ -103,7 +107,7 @@ case "$1" in
     echo "  activate | on      Start services + auto-create session"
     echo "  deactivate | off   Archive session + stop services"
     echo "  status             Show full status"
-    echo "  setup              Configure Claude Code hooks (one-time)"
+    echo "  setup              Full one-command setup (or --hooks-only)"
     echo ""
     echo "  init <task>        Start new session"
     echo "  archive            Archive completed task"

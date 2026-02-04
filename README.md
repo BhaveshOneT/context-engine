@@ -148,8 +148,10 @@
 ### The Simple Way (Recommended)
 
 ```bash
-# One-time setup (optional - configures Claude Code hooks)
+# One-time setup (installs deps + hooks + registry + embeddings)
 ./ce setup
+# Hooks-only setup (optional)
+# ./ce setup --hooks-only
 
 # Start your coding session
 ./ce activate
@@ -169,14 +171,14 @@
 - ✅ Learning extraction
 - ✅ Session archival
 
-### Optional Dependencies
+### Manual Dependency Install (if you skip setup)
 
 ```bash
+# Web UI + file watcher
+pip install flask watchdog
+
 # Vector search (semantic similarity)
 pip install sentence-transformers numpy
-
-# Web UI (already included)
-pip install flask
 
 # TLDR code analysis (95% token savings)
 pip install tree-sitter tree-sitter-languages
@@ -188,6 +190,8 @@ pip install tree-sitter tree-sitter-languages
 ./ce activate      # Start everything (100% automatic)
 ./ce deactivate    # Archive session + stop services
 ./ce status        # Show what's running
+./ce setup         # One-command setup (deps + hooks + registry + embeddings)
+./ce setup --hooks-only  # Hooks only
 
 ./ce init <task>   # Manual session init (optional)
 ./ce archive       # Manual archive (optional)

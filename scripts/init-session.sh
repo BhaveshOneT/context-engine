@@ -6,7 +6,21 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MEMORY_DIR="${PROJECT_MEMORY_DIR:-$(cd "$SCRIPT_DIR/.." && pwd)}"
-TASK_NAME="${1:-unnamed-task}"
+NO_ORCHESTRATOR=false
+TASK_NAME="unnamed-task"
+
+while [[ "$#" -gt 0 ]]; do
+    case "$1" in
+        --no-orchestrator)
+            NO_ORCHESTRATOR=true
+            ;;
+        *)
+            TASK_NAME="$1"
+            ;;
+    esac
+    shift
+done
+
 SESSION_ID="sess_$(date +%Y%m%d_%H%M%S)"
 
 echo "════════════════════════════════════════════════════"
@@ -61,17 +75,18 @@ if [ -f "$MEMORY_DIR/ledgers/TEMPLATE_CONTINUITY.md" ]; then
     echo "✓ Created continuity ledger"
 fi
 
-# V3: Start session orchestrator for intelligent automation
-echo ""
-echo "🤖 Starting V3 automation..."
-echo ""
-
-# Check if Python is available
-if command -v python3 &> /dev/null; then
-    python3 "$MEMORY_DIR/scripts/session-orchestrator.py" start "$TASK_NAME"
-else
-    echo "⚠️  Python3 not found, falling back to V2 mode..."
+if [ "$NO_ORCHESTRATOR" = false ]; then
+    # V3: Start session orchestrator for intelligent automation
     echo ""
+    echo "🤖 Starting V3 automation..."
+    echo ""
+
+    # Check if Python is available
+    if command -v python3 &> /dev/null; then
+        python3 "$MEMORY_DIR/scripts/session-orchestrator.py" start "$TASK_NAME"
+    else
+        echo "⚠️  Python3 not found, falling back to V2 mode..."
+        echo ""
 
     # V2 fallback: Load previous knowledge
     echo "📚 Loading knowledge base..."
@@ -98,9 +113,14 @@ else
     echo "  ✅ Session initialized successfully!"
     echo "════════════════════════════════════════════════════"
     echo ""
-    echo "Next steps:"
-    echo "  1. Edit $MEMORY_DIR/active/task_plan.md"
-    echo "  2. Install V3 dependencies: scripts/install-v3.sh"
-    echo "  3. Start working!"
+        echo "Next steps:"
+        echo "  1. Edit $MEMORY_DIR/active/task_plan.md"
+        echo "  2. Install V3 dependencies: scripts/install-v3.sh"
+        echo "  3. Start working!"
+        echo ""
+    fi
+else
+    echo ""
+    echo "ℹ️  Skipping session orchestrator (--no-orchestrator)"
     echo ""
 fi

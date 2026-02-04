@@ -229,7 +229,7 @@ def create_auto_session() -> str:
         env['PROJECT_MEMORY_DIR'] = str(MEMORY_DIR)
         env['CE_FILE_WATCHER_MANAGED'] = '1'
         subprocess.run(
-            ['bash', str(init_script), session_name],
+            ['bash', str(init_script), '--no-orchestrator', session_name],
             cwd=str(MEMORY_DIR),
             capture_output=True,
             env=env
@@ -452,64 +452,27 @@ def stop_service(service: str, config: Dict) -> bool:
 # ============================================================================
 
 def setup_hooks():
-    """Create/update Claude Code hooks for 100% automation"""
+    """Configure Claude Code hooks using setup_hooks.py"""
+    setup_script = SCRIPT_DIR / 'setup_hooks.py'
+    if not setup_script.exists():
+        print(f"  {RED}●{NC} Hooks setup script missing")
+        return False
 
-    # Create PostToolUse hook for auto error capture
-    post_hook = SCRIPT_DIR / 'hooks_PostToolUse_ErrorCapture.py'
-    post_hook_content = '''#!/usr/bin/env python3
-"""
-Claude Code PostToolUse Hook: Auto Error Capture
-Automatically captures errors from failed Bash commands.
-"""
+    env = os.environ.copy()
+    env['PROJECT_MEMORY_DIR'] = str(MEMORY_DIR)
+    result = subprocess.run(
+        [sys.executable, str(setup_script), '--force'],
+        cwd=str(MEMORY_DIR),
+        env=env,
+        capture_output=True,
+        text=True,
+    )
 
-import sys
-import os
-import json
-import re
-from pathlib import Path
-from datetime import datetime
-
-SCRIPT_DIR = Path(__file__).parent
-MEMORY_DIR = SCRIPT_DIR.parent
-
-def main():
-    # Read hook input from environment or stdin
-    tool_name = os.environ.get('CLAUDE_TOOL_NAME', '')
-    tool_output = os.environ.get('CLAUDE_TOOL_OUTPUT', '')
-    exit_code = os.environ.get('CLAUDE_EXIT_CODE', '0')
-
-    # Only process Bash tool failures
-    if tool_name != 'Bash' or exit_code == '0':
-        return
-
-    # Import error monitor
-    sys.path.insert(0, str(SCRIPT_DIR))
-    try:
-        from error_monitor import detect_error, generate_error_fingerprint, add_to_failures_md
-
-        # Check if output contains error patterns
-        if detect_error(tool_output):
-            # Extract error info
-            lines = tool_output.split('\\n')
-            for i, line in enumerate(lines):
-                if detect_error(line):
-                    error_data = {
-                        'symptom': line[:200],
-                        'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                        'command': os.environ.get('CLAUDE_TOOL_INPUT', 'Unknown'),
-                        'stack_trace': '\\n'.join(lines[max(0,i-2):min(len(lines),i+10)])
-                    }
-                    add_to_failures_md(error_data)
-                    print(f"[CE] Error auto-captured to knowledge/failures.md")
-                    break
-    except ImportError:
-        pass
-
-if __name__ == '__main__':
-    main()
-'''
-    post_hook.write_text(post_hook_content)
-    os.chmod(post_hook, 0o755)
+    if result.returncode != 0:
+        print(f"  {RED}●{NC} Hooks setup failed")
+        if result.stderr:
+            print(result.stderr.strip())
+        return False
 
     return True
 
@@ -556,9 +519,12 @@ def activate(open_browser: bool = True):
 
     # Step 3: Setup Hooks
     print(f"{CYAN}Hooks:{NC}")
-    setup_hooks()
-    print(f"  {GREEN}●{NC} Error auto-capture ready")
-    print(f"  {GREEN}●{NC} Prompt tracking ready")
+    hooks_ok = setup_hooks()
+    if hooks_ok:
+        print(f"  {GREEN}●{NC} Error auto-capture ready")
+        print(f"  {GREEN}●{NC} Prompt tracking ready")
+    else:
+        print(f"  {RED}●{NC} Hooks not configured")
 
     print()
 

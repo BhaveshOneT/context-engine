@@ -3,8 +3,9 @@
 # Active session files (volatile, user-specific)
 active/task_plan.md
 active/context.md
-active/.session_id
 active/.prompts_log.yaml
+active/.session_id
+active/.extraction_status.json
 active/.extraction_needed.txt
 ledgers/CONTINUITY_active.md
 

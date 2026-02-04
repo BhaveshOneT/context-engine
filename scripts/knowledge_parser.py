@@ -32,6 +32,7 @@ class KnowledgeEntry:
     title: str
     content: str
     preview: str
+    is_draft: bool = False
     obs_type: Optional[ObservationType] = None
     obs_emoji: str = ""
 
@@ -43,6 +44,7 @@ class KnowledgeEntry:
             'title': self.title,
             'content': self.content,
             'preview': self.preview,
+            'is_draft': self.is_draft,
             'obs_type': self.obs_type.value if self.obs_type else None,
             'obs_emoji': self.obs_emoji
         }
@@ -183,12 +185,18 @@ def parse_knowledge_file(
         preview = _extract_preview(lines, max_preview_length)
         section_content = "\n".join(lines).strip()
 
+        is_draft = (
+            bool(re.search(r'\*\*Status:\*\*\s*Draft', section_content, re.IGNORECASE))
+            or bool(re.search(r'\*\*Auto-Extracted:\*\*', section_content, re.IGNORECASE))
+        )
+
         entries.append(KnowledgeEntry(
             id=f'{filename.replace(".md", "")}_{i}',
             file=filename,
             title=title or 'Untitled',
             content=section_content[:max_content_length],
-            preview=preview
+            preview=preview,
+            is_draft=is_draft
         ))
 
     return entries

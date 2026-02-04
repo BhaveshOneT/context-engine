@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Context Engine</title>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
         * {
             box-sizing: border-box;
             margin: 0;
@@ -12,36 +13,50 @@
         }
 
         :root {
-            --bg: #000000;
-            --bg-elevated: #1c1c1e;
-            --bg-secondary: #2c2c2e;
-            --bg-tertiary: #3a3a3c;
-            --text: #f5f5f7;
-            --text-secondary: #86868b;
-            --text-tertiary: #6e6e73;
-            --accent: #0a84ff;
-            --accent-secondary: #5e5ce6;
-            --green: #30d158;
-            --red: #ff453a;
-            --orange: #ff9f0a;
+            --bg: #0b0f14;
+            --bg-elevated: #111826;
+            --bg-secondary: #172032;
+            --bg-tertiary: #1f2a3e;
+            --text: #f2f5f9;
+            --text-secondary: #b3bdcc;
+            --text-tertiary: #7f8aa1;
+            --accent: #ff7a45;
+            --accent-secondary: #4ad1b3;
+            --green: #3ddc84;
+            --red: #ff5c5c;
+            --orange: #ffb347;
             --separator: rgba(255,255,255,0.08);
-            --card-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            --card-shadow: 0 16px 40px rgba(2,6,23,0.55);
+            --ring: rgba(255,122,69,0.25);
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', sans-serif;
-            background: var(--bg);
+            font-family: 'Manrope', sans-serif;
+            background: radial-gradient(circle at 10% 10%, rgba(74,209,179,0.08), transparent 55%),
+                        radial-gradient(circle at 90% 0%, rgba(255,122,69,0.12), transparent 50%),
+                        var(--bg);
             color: var(--text);
-            line-height: 1.47059;
-            font-size: 17px;
+            line-height: 1.55;
+            font-size: 16px;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
+            min-height: 100vh;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image: radial-gradient(rgba(255,255,255,0.04) 1px, transparent 1px);
+            background-size: 24px 24px;
+            opacity: 0.25;
+            pointer-events: none;
         }
 
         .container {
-            max-width: 980px;
+            max-width: 1100px;
             margin: 0 auto;
-            padding: 44px 22px;
+            padding: 48px 24px 80px;
         }
 
         /* Header */
@@ -57,9 +72,10 @@
         }
 
         h1 {
-            font-size: 32px;
-            font-weight: 600;
-            letter-spacing: -0.003em;
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 36px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
             color: var(--text);
         }
 
@@ -78,27 +94,61 @@
         }
 
         .subtitle {
-            font-size: 17px;
+            font-size: 16px;
             color: var(--text-secondary);
-            font-weight: 400;
+            font-weight: 500;
         }
 
         /* Stats */
         .stats {
-            display: flex;
-            gap: 24px;
-            margin-top: 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 12px;
+            margin-top: 24px;
         }
 
         .stat {
-            font-size: 13px;
+            font-size: 12px;
             color: var(--text-tertiary);
+            background: var(--bg-elevated);
+            border: 1px solid var(--separator);
+            border-radius: 12px;
+            padding: 12px 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
         }
 
         .stat-value {
+            display: block;
+            margin-top: 6px;
             color: var(--text);
-            font-weight: 500;
+            font-size: 20px;
+            font-weight: 700;
             font-variant-numeric: tabular-nums;
+        }
+
+        .header-actions {
+            margin-top: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .extraction-status {
+            font-size: 13px;
+            color: var(--text-secondary);
+            background: var(--bg-elevated);
+            border: 1px solid var(--separator);
+            padding: 8px 12px;
+            border-radius: 999px;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
         }
 
         /* Search */
@@ -108,15 +158,15 @@
 
         .search-box {
             width: 100%;
-            padding: 12px 16px;
-            font-size: 17px;
+            padding: 14px 16px;
+            font-size: 16px;
             font-family: inherit;
             background: var(--bg-elevated);
-            border: none;
-            border-radius: 12px;
+            border: 1px solid transparent;
+            border-radius: 14px;
             color: var(--text);
             outline: none;
-            transition: background 0.2s ease;
+            transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
         }
 
         .search-box::placeholder {
@@ -125,27 +175,30 @@
 
         .search-box:focus {
             background: var(--bg-secondary);
+            border-color: var(--accent);
+            box-shadow: 0 0 0 4px var(--ring);
         }
 
         /* Navigation */
         .nav {
-            display: flex;
-            gap: 4px;
+            display: inline-flex;
+            gap: 6px;
             margin-bottom: 32px;
-            background: var(--bg-elevated);
-            padding: 4px;
-            border-radius: 10px;
-            width: fit-content;
+            background: rgba(17,24,38,0.85);
+            padding: 6px;
+            border-radius: 14px;
+            border: 1px solid var(--separator);
+            backdrop-filter: blur(8px);
         }
 
         .nav-item {
-            padding: 8px 16px;
+            padding: 9px 18px;
             font-size: 13px;
-            font-weight: 500;
+            font-weight: 600;
             color: var(--text-secondary);
             background: transparent;
             border: none;
-            border-radius: 8px;
+            border-radius: 12px;
             cursor: pointer;
             transition: all 0.2s ease;
         }
@@ -155,8 +208,9 @@
         }
 
         .nav-item.active {
-            background: var(--bg-secondary);
-            color: var(--text);
+            background: var(--accent);
+            color: #0b0f14;
+            box-shadow: 0 10px 24px rgba(255,122,69,0.35);
         }
 
         /* Filters */
@@ -168,13 +222,13 @@
         }
 
         .filter-btn {
-            padding: 6px 12px;
-            font-size: 13px;
-            font-weight: 400;
+            padding: 7px 14px;
+            font-size: 12px;
+            font-weight: 600;
             color: var(--text-secondary);
             background: transparent;
             border: 1px solid var(--separator);
-            border-radius: 20px;
+            border-radius: 999px;
             cursor: pointer;
             transition: all 0.2s ease;
         }
@@ -185,9 +239,9 @@
         }
 
         .filter-btn.active {
-            background: var(--text);
-            color: var(--bg);
-            border-color: var(--text);
+            background: var(--accent-secondary);
+            color: #0b0f14;
+            border-color: transparent;
         }
 
         /* Content Area */
@@ -216,15 +270,17 @@
         /* Cards */
         .card {
             background: var(--bg-elevated);
-            border-radius: 12px;
-            margin-bottom: 12px;
+            border-radius: 16px;
+            margin-bottom: 14px;
             overflow: hidden;
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            border: 1px solid var(--separator);
+            transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
         }
 
         .card:hover {
-            transform: translateY(-1px);
+            transform: translateY(-2px);
             box-shadow: var(--card-shadow);
+            border-color: rgba(255,122,69,0.35);
         }
 
         .card-body {
@@ -240,11 +296,11 @@
 
         .card-badge {
             font-size: 11px;
-            font-weight: 500;
+            font-weight: 600;
             text-transform: uppercase;
-            letter-spacing: 0.02em;
-            padding: 3px 8px;
-            border-radius: 4px;
+            letter-spacing: 0.08em;
+            padding: 4px 10px;
+            border-radius: 999px;
             background: var(--bg-tertiary);
             color: var(--text-secondary);
         }
@@ -255,6 +311,7 @@
         .card-badge.refactor { background: rgba(255,159,10,0.2); color: #ffd60a; }
         .card-badge.discovery { background: rgba(10,132,255,0.2); color: #64d2ff; }
         .card-badge.change { background: rgba(172,142,104,0.2); color: #ac8e68; }
+        .card-badge.draft { background: rgba(255,122,69,0.2); color: #ffb347; }
 
         .card-source {
             font-size: 12px;
@@ -280,15 +337,17 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 14px 20px;
+            padding: 16px 20px;
             background: var(--bg-elevated);
-            border-radius: 12px;
-            margin-bottom: 8px;
-            transition: background 0.15s ease;
+            border-radius: 14px;
+            margin-bottom: 10px;
+            border: 1px solid var(--separator);
+            transition: background 0.15s ease, border-color 0.2s ease;
         }
 
         .list-item:hover {
             background: var(--bg-secondary);
+            border-color: rgba(74,209,179,0.35);
         }
 
         .list-item-main {
@@ -367,7 +426,8 @@
 
         .btn-primary {
             background: var(--accent);
-            color: white;
+            color: #0b0f14;
+            box-shadow: 0 10px 24px rgba(255,122,69,0.25);
         }
 
         .btn-secondary {
@@ -377,7 +437,7 @@
 
         .btn-danger {
             background: var(--red);
-            color: white;
+            color: #0b0f14;
         }
 
         .btn.loading {
@@ -517,6 +577,13 @@
             </div>
             <p class="subtitle">Memory browser and knowledge base</p>
             <div class="stats" id="stats"></div>
+            <div class="header-actions">
+                <div class="extraction-status" id="extractionStatus">Extraction: —</div>
+                <div class="action-buttons">
+                    <button class="btn btn-secondary" id="refreshBtn">Refresh</button>
+                    <button class="btn btn-primary" id="extractBtn">Run Extraction</button>
+                </div>
+            </div>
         </header>
 
         <div class="search-wrapper">
@@ -587,6 +654,55 @@
             }
         }
 
+        // Extraction status
+        async function loadExtractionStatus() {
+            try {
+                const res = await fetch('/api/extraction-status');
+                const data = await res.json();
+                const el = $('#extractionStatus');
+                if (data.status === 'never') {
+                    el.textContent = 'Extraction: never run';
+                    return;
+                }
+                if (data.status === 'error') {
+                    el.textContent = 'Extraction: status error';
+                    return;
+                }
+                let lastRun = 'unknown';
+                if (data.last_run) {
+                    const parsed = new Date(data.last_run);
+                    lastRun = isNaN(parsed.getTime()) ? data.last_run : parsed.toLocaleString();
+                }
+                const counts = data.counts || {};
+                const total = Object.values(counts).reduce((a, b) => a + b, 0);
+                el.textContent = `Extraction: ${lastRun} · ${total} entries`;
+            } catch (e) {
+                $('#extractionStatus').textContent = 'Extraction: unavailable';
+            }
+        }
+
+        async function runExtraction() {
+            const btn = $('#extractBtn');
+            btn.classList.add('loading');
+            try {
+                const res = await fetch('/api/extract', { method: 'POST' });
+                if (!res.ok) {
+                    toast('Extraction failed', 'error');
+                    return;
+                }
+                const data = await res.json();
+                toast('Extraction complete', 'success');
+                await loadStats();
+                await loadExtractionStatus();
+                await loadContent(currentTab);
+                return data;
+            } catch (e) {
+                toast('Extraction error', 'error');
+            } finally {
+                btn.classList.remove('loading');
+            }
+        }
+
         // Filters
         async function loadFilters() {
             try {
@@ -601,6 +717,13 @@
                 allBtn.textContent = 'All';
                 allBtn.onclick = () => setFilter('all');
                 container.appendChild(allBtn);
+
+                const draftBtn = document.createElement('button');
+                draftBtn.className = 'filter-btn';
+                draftBtn.dataset.type = 'draft';
+                draftBtn.textContent = 'Drafts';
+                draftBtn.onclick = () => setFilter('draft');
+                container.appendChild(draftBtn);
 
                 types.filter(t => t.count > 0).forEach(t => {
                     const btn = document.createElement('button');
@@ -650,9 +773,13 @@
             content.innerHTML = '<div class="loading">Searching...</div>';
 
             try {
-                const url = `/api/search?q=${encodeURIComponent(query)}${currentFilter !== 'all' ? '&type=' + currentFilter : ''}`;
+                const url = `/api/search?q=${encodeURIComponent(query)}${currentFilter !== 'all' && currentFilter !== 'draft' ? '&type=' + currentFilter : ''}`;
                 const res = await fetch(url);
-                const items = await res.json();
+                let items = await res.json();
+
+                if (currentFilter === 'draft') {
+                    items = items.filter(item => item.is_draft);
+                }
 
                 if (items.length === 0) {
                     content.innerHTML = `<div class="empty-state"><div class="empty-state-icon">🔍</div>No results for "${query}"</div>`;
@@ -672,9 +799,15 @@
             try {
                 switch (tab) {
                     case 'knowledge':
-                        const kUrl = currentFilter !== 'all' ? `/api/knowledge?type=${currentFilter}` : '/api/knowledge';
-                        const kRes = await fetch(kUrl);
-                        renderKnowledge(await kRes.json());
+                        if (currentFilter === 'draft') {
+                            const allRes = await fetch('/api/knowledge');
+                            const allItems = await allRes.json();
+                            renderKnowledge(allItems.filter(item => item.is_draft));
+                        } else {
+                            const kUrl = currentFilter !== 'all' ? `/api/knowledge?type=${currentFilter}` : '/api/knowledge';
+                            const kRes = await fetch(kUrl);
+                            renderKnowledge(await kRes.json());
+                        }
                         break;
                     case 'sessions':
                         const sRes = await fetch('/api/sessions');
@@ -714,6 +847,7 @@
                 card.innerHTML = `
                     <div class="card-body">
                         <div class="card-header">
+                            ${item.is_draft ? `<span class="card-badge draft">Draft</span>` : ''}
                             ${item.obs_type ? `<span class="card-badge ${item.obs_type}">${item.obs_emoji || ''} ${item.obs_type}</span>` : ''}
                             <span class="card-source">${item.file}</span>
                         </div>
@@ -923,8 +1057,18 @@
         checkHealth();
         setInterval(checkHealth, 30000);
         loadStats();
+        loadExtractionStatus();
         loadFilters();
         loadContent('knowledge');
+
+        // Actions
+        $('#refreshBtn').onclick = () => {
+            loadStats();
+            loadExtractionStatus();
+            loadContent(currentTab);
+            toast('Refreshed', 'info');
+        };
+        $('#extractBtn').onclick = runExtraction;
     </script>
 </body>
 </html>

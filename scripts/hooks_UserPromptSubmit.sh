@@ -15,14 +15,21 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MEMORY_DIR="${PROJECT_MEMORY_DIR:-$(dirname "$SCRIPT_DIR")}"
 
 # Get prompt text from environment or stdin
-# Claude Code passes the prompt in CLAUDE_PROMPT or via stdin
-PROMPT_TEXT="${CLAUDE_PROMPT:-}"
+# Claude Code passes the prompt in PROMPT or CLAUDE_PROMPT or via stdin
+PROMPT_TEXT="${PROMPT:-${CLAUDE_PROMPT:-}}"
 
 # If no environment variable, try reading from stdin (non-blocking)
 if [ -z "$PROMPT_TEXT" ]; then
     # Read from argument if provided
     if [ -n "$1" ]; then
         PROMPT_TEXT="$1"
+    fi
+fi
+
+# Fallback to stdin if provided
+if [ -z "$PROMPT_TEXT" ]; then
+    if [ ! -t 0 ]; then
+        PROMPT_TEXT="$(cat)"
     fi
 fi
 

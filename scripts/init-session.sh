@@ -37,6 +37,10 @@ mkdir -p "$MEMORY_DIR/active" "$MEMORY_DIR/ledgers" "$MEMORY_DIR/handoffs" "$MEM
 # Persist session id for prompt tracking
 echo "$SESSION_ID" > "$MEMORY_DIR/active/.session_id"
 
+# Reset per-session durable logs
+rm -f "$MEMORY_DIR/active/.events.jsonl" "$MEMORY_DIR/active/.events_state.json"
+rm -f "$MEMORY_DIR/active/.prompts_log.yaml" "$MEMORY_DIR/active/.extraction_status.json"
+
 # Register session in registry (for Web UI)
 if command -v python3 &> /dev/null && [ -f "$MEMORY_DIR/scripts/session-registry.py" ]; then
     TERMINAL_NAME="${CE_TERMINAL:-$(hostname -s 2>/dev/null || hostname 2>/dev/null || echo "terminal")}"

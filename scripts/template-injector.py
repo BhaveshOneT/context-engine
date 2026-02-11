@@ -4,11 +4,9 @@ Ultra-Planning V3: Template Injector
 Auto-fill session templates with relevant knowledge from past sessions
 """
 
-import os
 import sys
 import re
 from pathlib import Path
-from datetime import datetime
 from typing import List, Dict, Optional
 
 # Add scripts dir to path for imports
@@ -21,6 +19,8 @@ MEMORY_DIR = Path(__file__).parent.parent
 KNOWLEDGE_DIR = MEMORY_DIR / 'knowledge'
 ACTIVE_DIR = MEMORY_DIR / 'active'
 ARCHIVE_DIR = MEMORY_DIR / 'archive'
+_SECTION_BOUNDARY = r'\n##\s+(?:Pattern|Error|Decision|Gotcha):'
+_NOISE_VALUES = {'', 'tbd', 'todo', 'n/a', 'na', 'unknown'}
 
 
 def extract_keywords(task_name: str) -> List[str]:
@@ -104,6 +104,79 @@ def extract_keywords(task_name: str) -> List[str]:
         return keywords
 
 
+def _clean_value(value: str) -> str:
+    cleaned = re.sub(r'\s+', ' ', (value or '').strip())
+    if cleaned.lower() in _NOISE_VALUES:
+        return ''
+    return cleaned
+
+
+def _extract_field(section: str, label: str) -> str:
+    match = re.search(rf'\*\*{re.escape(label)}:\*\*\s*(.+?)(?=\n\*\*|\n##|\n---|\Z)', section, re.DOTALL)
+    if not match:
+        return ''
+
+    value = _clean_value(match.group(1))
+    value = value.split('\n')[0].strip()
+    value = re.sub(r'^-\s*', '', value)
+    return _clean_value(value)
+
+
+def _extract_sections(content: str, section_prefix: str) -> List[str]:
+    pattern = rf"({re.escape(section_prefix)}[^\n]*\n.*?)(?={_SECTION_BOUNDARY}|\Z)"
+    return [m.group(1).strip() for m in re.finditer(pattern, content, flags=re.DOTALL)]
+
+
+def _keyword_relevance(section: str, keywords: List[str]) -> float:
+    if not keywords:
+        return 0.0
+    lowered = section.lower()
+    matches = sum(1 for kw in keywords if kw and kw in lowered)
+    return matches / len(keywords)
+
+
+def _section_quality(section: str) -> float:
+    lowered = section.lower()
+    score = 0.2
+
+    if '**status:** candidate' in lowered or '**status:** draft' in lowered:
+        score -= 0.2
+    if any(token in lowered for token in ('**solution:**', '**root cause:**', '**rationale:**', '**why it works:**')):
+        score += 0.25
+    if any(token in lowered for token in ('**implementation:**', '**when to apply:**', '**chosen:**')):
+        score += 0.2
+    if '**auto-fingerprint:**' in lowered:
+        score += 0.1
+
+    if re.search(r'\b(tbd|todo|unknown)\b', lowered):
+        score -= 0.35
+
+    if len(section) >= 200:
+        score += 0.1
+
+    return max(0.0, min(1.0, score))
+
+
+def _fit_score(relevance: float, quality: float) -> float:
+    return (relevance * 0.65) + (quality * 0.35)
+
+
+def _render_with_budget(lines: List[str], max_chars: int) -> str:
+    if not lines:
+        return ''
+
+    rendered = []
+    used = 0
+    for line in lines:
+        projected = used + len(line) + 1
+        if projected > max_chars:
+            rendered.append("- … more matches omitted (context budget limit)")
+            break
+        rendered.append(line)
+        used = projected
+    return '\n'.join(rendered)
+
+
 def search_knowledge_file(
     filename: str,
     section_prefix: str,
@@ -132,20 +205,23 @@ def search_knowledge_file(
         return []
 
     content = cache_manager.load_file_cached(str(file_path))
-    sections = re.split(r'\n' + re.escape(section_prefix), content)
+    sections = _extract_sections(content, section_prefix)
+    min_quality = float(config_loader.get('template_injection.min_quality', 0.35))
 
     results = []
-    for section in sections[1:]:
-        section_lower = section.lower()
-        matches = sum(1 for kw in keywords if kw in section_lower)
-        score = matches / len(keywords) if keywords else 0
+    for section in sections:
+        relevance = _keyword_relevance(section, keywords)
+        quality = _section_quality(section)
+        score = _fit_score(relevance, quality)
 
-        if score >= threshold:
-            first_line = section.split('\n')[0].strip()
+        if relevance >= threshold and quality >= min_quality:
+            first_line = section.split('\n')[0].replace(section_prefix, '').strip()
             results.append({
                 'name': first_line,
+                'relevance': relevance,
+                'quality': quality,
                 'score': score,
-                'content': section_prefix + ' ' + section.strip()
+                'content': section,
             })
 
     results.sort(key=lambda x: x['score'], reverse=True)
@@ -243,59 +319,76 @@ def suggest_phases(task_name: str) -> List[str]:
 def format_patterns_for_template(patterns: List[Dict]) -> str:
     """Format patterns for insertion into template"""
     if not patterns:
-        return "- No directly relevant patterns found (building new knowledge!)"
+        return "- No high-confidence patterns found yet"
 
     lines = []
     for p in patterns:
-        lines.append(f"- **{p['name']}** (relevance: {p['score']:.0%})")
-        # Extract key points from pattern
-        impl_match = re.search(r'\*\*Implementation:\*\*(.+?)(?=\*\*|\Z)', p['content'], re.DOTALL)
-        if impl_match:
-            impl_text = impl_match.group(1).strip()
-            # Take first line or two
-            impl_lines = impl_text.split('\n')[:2]
-            for line in impl_lines:
-                line = line.strip()
-                if line and not line.startswith('-'):
-                    lines.append(f"  {line}")
-                elif line.startswith('-'):
-                    lines.append(f"  {line}")
+        lines.append(
+            f"- **{p['name']}** (fit: {p['score']:.0%}, quality: {p['quality']:.0%})"
+        )
+        when_to_apply = _extract_field(p['content'], 'When to apply')
+        implementation = _extract_field(p['content'], 'Implementation')
+        why_works = _extract_field(p['content'], 'Why it works')
 
-    return '\n'.join(lines)
+        if when_to_apply:
+            lines.append(f"  Use when: {when_to_apply}")
+        if implementation:
+            lines.append(f"  Do: {implementation}")
+        if why_works:
+            lines.append(f"  Why: {why_works}")
+
+    max_chars = int(config_loader.get('template_injection.max_render_chars', 1200))
+    return _render_with_budget(lines, max_chars)
 
 
 def format_failures_for_template(failures: List[Dict]) -> str:
     """Format failures for insertion into template"""
     if not failures:
-        return "- No known errors for this type of task (stay alert!)"
+        return "- No high-confidence failure patterns found yet"
 
     lines = []
     for f in failures:
-        lines.append(f"- **{f['name']}** (relevance: {f['score']:.0%})")
-        # Extract solution
-        solution_match = re.search(r'\*\*Solution:\*\*(.+?)(?=\*\*|\Z)', f['content'], re.DOTALL)
-        if solution_match:
-            solution = solution_match.group(1).strip().split('\n')[0].strip()
-            lines.append(f"  Solution: {solution}")
+        lines.append(
+            f"- **{f['name']}** (fit: {f['score']:.0%}, quality: {f['quality']:.0%})"
+        )
+        symptom = _extract_field(f['content'], 'Symptom')
+        root_cause = _extract_field(f['content'], 'Root cause')
+        solution = _extract_field(f['content'], 'Solution')
 
-    return '\n'.join(lines)
+        if symptom:
+            lines.append(f"  Trigger: {symptom}")
+        if root_cause:
+            lines.append(f"  Cause: {root_cause}")
+        if solution:
+            lines.append(f"  Avoid by: {solution}")
+
+    max_chars = int(config_loader.get('template_injection.max_render_chars', 1200))
+    return _render_with_budget(lines, max_chars)
 
 
 def format_decisions_for_template(decisions: List[Dict]) -> str:
     """Format decisions for insertion into template"""
     if not decisions:
-        return "- No related architectural decisions found"
+        return "- No high-confidence related decisions found"
 
     lines = []
     for d in decisions:
-        lines.append(f"- **{d['name']}** (relevance: {d['score']:.0%})")
-        # Extract chosen approach
-        chosen_match = re.search(r'\*\*Chosen:\*\*(.+?)(?=\*\*|\Z)', d['content'], re.DOTALL)
-        if chosen_match:
-            chosen = chosen_match.group(1).strip().split('\n')[0].strip()
-            lines.append(f"  Approach: {chosen}")
+        lines.append(
+            f"- **{d['name']}** (fit: {d['score']:.0%}, quality: {d['quality']:.0%})"
+        )
+        chosen = _extract_field(d['content'], 'Chosen')
+        rejected = _extract_field(d['content'], 'Rejected')
+        rationale = _extract_field(d['content'], 'Rationale')
 
-    return '\n'.join(lines)
+        if chosen:
+            lines.append(f"  Choice: {chosen}")
+        if rejected:
+            lines.append(f"  Not chosen: {rejected}")
+        if rationale:
+            lines.append(f"  Why: {rationale}")
+
+    max_chars = int(config_loader.get('template_injection.max_render_chars', 1200))
+    return _render_with_budget(lines, max_chars)
 
 
 def format_suggested_phases(phases: List[str]) -> str:

@@ -38,6 +38,26 @@ class ExtractItem:
 _FAILURE_KEYWORDS = ('error', 'exception', 'failed', 'traceback', 'crash')
 _GOTCHA_KEYWORDS = ('surprising', 'unexpected', 'gotcha', 'quirk')
 _DECISION_KEYWORDS = ('decided', 'chose', 'switch', 'migrate')
+_PLACEHOLDER_VALUES = {
+    'tbd', 'todo', 'n/a', 'na', 'unknown', '(fill this in)', '(add solution here)',
+}
+_GENERIC_PHRASES = (
+    'improve performance',
+    'fix bug',
+    'update code',
+    'refactor code',
+    'clean up',
+    'make it better',
+    'handle edge cases',
+    'add tests',
+    'investigate issue',
+)
+_TECHNICAL_SIGNAL_PATTERNS = (
+    r'`[^`]+`',
+    r'\b[a-zA-Z0-9_/.-]+\.(ts|tsx|js|jsx|py|go|rs|java|json|yaml|yml|sql|md)\b',
+    r'\b(jwt|oauth|api|http|grpc|redis|cache|postgres|mysql|sqlite|index|migration|schema|ci|lint|build|hook)\b',
+    r'(::|=>|==|!=|\(|\)|/|_)',
+)
 
 
 def _load(path: Path) -> str:
@@ -73,6 +93,9 @@ def _is_placeholder(text: str) -> bool:
     stripped = text.strip()
     if stripped.startswith('[') and stripped.endswith(']'):
         return True
+    lowered = stripped.lower()
+    if lowered in _PLACEHOLDER_VALUES:
+        return True
     placeholders = {
         '[brief description]': True,
         '[error encountered]': True,
@@ -81,7 +104,91 @@ def _is_placeholder(text: str) -> bool:
         '[title]': True,
         '[what was chosen]': True,
     }
-    return placeholders.get(stripped.lower(), False)
+    return placeholders.get(lowered, False)
+
+
+def _normalize_whitespace(text: str) -> str:
+    return re.sub(r'\s+', ' ', text or '').strip()
+
+
+def _is_generic_text(text: str) -> bool:
+    lowered = _normalize_whitespace(text).lower()
+    if not lowered:
+        return True
+    if any(phrase in lowered for phrase in _GENERIC_PHRASES):
+        return True
+    if len(lowered.split()) < 3:
+        return True
+    return False
+
+
+def _has_technical_signal(text: str) -> bool:
+    haystack = text or ''
+    return any(re.search(pattern, haystack, re.IGNORECASE) for pattern in _TECHNICAL_SIGNAL_PATTERNS)
+
+
+def _clean_detail_value(value: str) -> str:
+    cleaned = _normalize_whitespace(value)
+    if _is_placeholder(cleaned):
+        return ''
+    return cleaned
+
+
+def _sanitize_item(item: ExtractItem) -> Optional[ExtractItem]:
+    title = _normalize_whitespace(item.title)
+    raw_text = _normalize_whitespace(item.raw_text)
+    details = {k: _clean_detail_value(v) for k, v in item.details.items() if _clean_detail_value(v)}
+
+    if _is_placeholder(title) or len(title) < 8:
+        return None
+
+    return ExtractItem(
+        kind=item.kind,
+        title=title,
+        source=item.source,
+        details=details,
+        raw_text=raw_text or title,
+    )
+
+
+def _item_quality(item: ExtractItem, kind: str) -> float:
+    score = 0.0
+    text_blob = " ".join([item.title, item.raw_text] + list(item.details.values()))
+    lowered = text_blob.lower()
+
+    if 12 <= len(item.title) <= 140:
+        score += 0.2
+    if _has_technical_signal(text_blob):
+        score += 0.35
+    if item.details:
+        score += 0.2
+    if not _is_generic_text(item.title):
+        score += 0.15
+    if 'active/task_plan.md (decisions)' in item.source:
+        score += 0.1
+
+    if kind == 'decision':
+        if item.details.get('why'):
+            score += 0.2
+        else:
+            score -= 0.2
+
+    if kind == 'failure':
+        if re.search(r'(because|due to|root cause|when)', lowered):
+            score += 0.2
+        else:
+            score -= 0.15
+
+    if kind == 'pattern':
+        if item.details.get('found') or item.details.get('relevance'):
+            score += 0.15
+
+    if _is_generic_text(text_blob):
+        score -= 0.35
+    if 'tbd' in lowered or 'todo' in lowered:
+        score -= 0.2
+
+    return max(0.0, min(1.0, score))
 
 
 def _classify_kind(text: str) -> str:
@@ -269,107 +376,114 @@ def _append_entry(path: Path, entry: str) -> None:
         f.write(entry)
 
 
-def _format_common_metadata(timestamp: str, fp: str, draft_mode: bool) -> str:
+def _write_status(status: Dict) -> None:
+    STATUS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    with STATUS_FILE.open('w', encoding='utf-8') as f:
+        json.dump(status, f, indent=2)
+
+
+def _format_common_metadata(timestamp: str, fp: str, draft_mode: bool, quality: float) -> str:
     lines = []
     if draft_mode:
-        lines.append("**Status:** Draft (auto-extracted)")
+        lines.append("**Status:** Candidate (auto-extracted)")
+    lines.append(f"**Quality Score:** {quality:.2f}")
     lines.append(f"**Auto-Extracted:** {timestamp}")
     lines.append(f"**Auto-Fingerprint:** [auto:{fp}]")
     return "\n".join(lines) + "\n"
 
 
-def _format_pattern(item: ExtractItem, timestamp: str, draft_mode: bool) -> str:
+def _format_pattern(item: ExtractItem, timestamp: str, draft_mode: bool, quality: float) -> str:
     today = date.today().isoformat()
     fp = _fingerprint('pattern', item.title)
-    metadata = _format_common_metadata(timestamp, fp, draft_mode)
-    found = item.details.get('found') or 'TBD'
-    relevance = item.details.get('relevance') or 'TBD'
-    return f"""
-## Pattern: {item.title}
-{metadata}
-**Established:** {today}
-**Used successfully:** 1 time
-**Context:** Auto-extracted from {item.source}
-**Implementation:**
-- {found}
-**Files:**
-**Why it works:** {relevance}
-**Related:**
+    metadata = _format_common_metadata(timestamp, fp, draft_mode, quality)
+    found = item.details.get('found')
+    relevance = item.details.get('relevance')
+    lines = [
+        "",
+        f"## Pattern: {item.title}",
+        metadata.rstrip(),
+        f"**Established:** {today}",
+        f"**Context:** Auto-extracted from {item.source}",
+        f"**When to apply:** {item.title}",
+    ]
+    if found:
+        lines.extend(["**Implementation:**", f"- {found}"])
+    if relevance:
+        lines.append(f"**Why it works:** {relevance}")
+    lines.extend(["", "---", ""])
+    return "\n".join(lines)
 
----
-"""
 
-
-def _format_decision(item: ExtractItem, timestamp: str, draft_mode: bool) -> str:
+def _format_decision(item: ExtractItem, timestamp: str, draft_mode: bool, quality: float) -> str:
     today = date.today().isoformat()
     fp = _fingerprint('decision', item.title)
-    metadata = _format_common_metadata(timestamp, fp, draft_mode)
-    why = item.details.get('why', 'TBD')
-    rejected = item.details.get('rejected', 'TBD')
-    return f"""
-## Decision: {item.title}
-{metadata}
-**Date:** {today}
-**Context:** Auto-extracted from {item.source}
-**Chosen:** {item.title}
-**Rejected:** {rejected}
-**Rationale:**
-- {why}
-**Trade-offs:**
-- Pro: TBD
-- Con: TBD
-**Mitigation:** TBD
-**Related:**
-**Commit:**
-
----
-"""
+    metadata = _format_common_metadata(timestamp, fp, draft_mode, quality)
+    why = item.details.get('why')
+    rejected = item.details.get('rejected')
+    lines = [
+        "",
+        f"## Decision: {item.title}",
+        metadata.rstrip(),
+        f"**Date:** {today}",
+        f"**Context:** Auto-extracted from {item.source}",
+        f"**Chosen:** {item.title}",
+    ]
+    if rejected:
+        lines.append(f"**Rejected:** {rejected}")
+    if why:
+        lines.extend(["**Rationale:**", f"- {why}"])
+    lines.extend(["", "---", ""])
+    return "\n".join(lines)
 
 
-def _format_gotcha(item: ExtractItem, timestamp: str, draft_mode: bool) -> str:
+def _format_gotcha(item: ExtractItem, timestamp: str, draft_mode: bool, quality: float) -> str:
     today = date.today().isoformat()
     fp = _fingerprint('gotcha', item.title)
-    metadata = _format_common_metadata(timestamp, fp, draft_mode)
-    return f"""
-## Gotcha: {item.title}
-{metadata}
-**Discovered:** {today}
-**Occurrences:** 1 time
-**Context:** Auto-extracted from {item.source}
-**Surprise:** {item.title}
-**Why it happens:** TBD
-**How to handle:** TBD
-**Watch out:** TBD
-**Related:**
-
----
-"""
+    metadata = _format_common_metadata(timestamp, fp, draft_mode, quality)
+    lines = [
+        "",
+        f"## Gotcha: {item.title}",
+        metadata.rstrip(),
+        f"**Discovered:** {today}",
+        f"**Context:** Auto-extracted from {item.source}",
+        f"**Surprise:** {item.title}",
+    ]
+    lines.extend(["", "---", ""])
+    return "\n".join(lines)
 
 
-def _format_failure(item: ExtractItem, timestamp: str, draft_mode: bool) -> str:
+def _format_failure(item: ExtractItem, timestamp: str, draft_mode: bool, quality: float) -> str:
     today = date.today().isoformat()
     fp = _fingerprint('failure', item.title)
-    metadata = _format_common_metadata(timestamp, fp, draft_mode)
-    return f"""
-## Error: [Auto-Extracted] {item.title}
-{metadata}
-**First seen:** {today}
-**Occurrences:** 1 task
-**Symptom:** {item.title}
-**Root cause:** TBD
-**Solution:** TBD
-**Files affected:**
-**Never do:** TBD
-**Related:**
-
----
-"""
+    metadata = _format_common_metadata(timestamp, fp, draft_mode, quality)
+    lines = [
+        "",
+        f"## Error: [Auto-Extracted] {item.title}",
+        metadata.rstrip(),
+        f"**First seen:** {today}",
+        f"**Symptom:** {item.title}",
+        f"**Context:** Auto-extracted from {item.source}",
+    ]
+    if item.details.get('found'):
+        lines.append(f"**Evidence:** {item.details['found']}")
+    lines.extend(["", "---", ""])
+    return "\n".join(lines)
 
 
-def _write_status(status: Dict) -> None:
-    STATUS_FILE.parent.mkdir(parents=True, exist_ok=True)
-    with STATUS_FILE.open('w', encoding='utf-8') as f:
-        json.dump(status, f, indent=2)
+def _dedupe_keep_best(items: List[ExtractItem]) -> List[ExtractItem]:
+    best_by_key: Dict[str, Tuple[ExtractItem, float]] = {}
+    for item in items:
+        sanitized = _sanitize_item(item)
+        if not sanitized:
+            continue
+        kind = sanitized.kind or _classify_kind(sanitized.raw_text)
+        quality = _item_quality(sanitized, kind)
+        key = f"{kind}:{sanitized.title.lower()}"
+        current = best_by_key.get(key)
+        if current is None or quality > current[1]:
+            best_by_key[key] = (sanitized, quality)
+
+    return [item for item, _ in best_by_key.values()]
 
 
 def extract(dry_run: bool = False) -> Dict:
@@ -378,6 +492,8 @@ def extract(dry_run: bool = False) -> Dict:
 
     scope = config_loader.get('auto_extraction.scope', 'balanced')
     draft_mode = config_loader.get('auto_extraction.draft_mode', True)
+    min_quality = float(config_loader.get('auto_extraction.min_quality', 0.55))
+    max_items = int(config_loader.get('auto_extraction.max_items_per_run', 24))
 
     extracted_counts = {'pattern': 0, 'decision': 0, 'gotcha': 0, 'failure': 0}
 
@@ -395,26 +511,39 @@ def extract(dry_run: bool = False) -> Dict:
         items.extend(_parse_research_findings(context_content))
         items.extend(_parse_key_insights(context_content))
 
+    deduped_items = _dedupe_keep_best(items)
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    sources = sorted({item.source for item in deduped_items})
 
-    sources = sorted({item.source for item in items})
-
-    for item in items:
+    accepted = 0
+    filtered_low_quality = 0
+    scored_items = []
+    for item in deduped_items:
         kind = item.kind or _classify_kind(item.raw_text)
+        quality = _item_quality(item, kind)
+        scored_items.append((item, kind, quality))
+
+    scored_items.sort(key=lambda row: row[2], reverse=True)
+
+    for item, kind, quality in scored_items[:max_items]:
+        if quality < min_quality:
+            filtered_low_quality += 1
+            continue
+
         fp = _fingerprint(kind, item.title)
 
         if kind == 'pattern':
             target = KNOWLEDGE_DIR / 'patterns.md'
-            entry = _format_pattern(item, timestamp, draft_mode)
+            entry = _format_pattern(item, timestamp, draft_mode, quality)
         elif kind == 'decision':
             target = KNOWLEDGE_DIR / 'decisions.md'
-            entry = _format_decision(item, timestamp, draft_mode)
+            entry = _format_decision(item, timestamp, draft_mode, quality)
         elif kind == 'gotcha':
             target = KNOWLEDGE_DIR / 'gotchas.md'
-            entry = _format_gotcha(item, timestamp, draft_mode)
+            entry = _format_gotcha(item, timestamp, draft_mode, quality)
         elif kind == 'failure':
             target = KNOWLEDGE_DIR / 'failures.md'
-            entry = _format_failure(item, timestamp, draft_mode)
+            entry = _format_failure(item, timestamp, draft_mode, quality)
         else:
             continue
 
@@ -425,6 +554,7 @@ def extract(dry_run: bool = False) -> Dict:
             _append_entry(target, entry)
 
         extracted_counts[kind] += 1
+        accepted += 1
 
     if updated_context and not dry_run:
         _write(context_path, updated_context)
@@ -436,6 +566,12 @@ def extract(dry_run: bool = False) -> Dict:
         'scope': scope,
         'draft_mode': draft_mode,
         'dry_run': dry_run,
+        'quality': {
+            'min_quality': min_quality,
+            'considered': len(scored_items),
+            'accepted': accepted,
+            'filtered_low_quality': filtered_low_quality,
+        },
     }
 
     if not dry_run:
@@ -464,6 +600,9 @@ def main() -> int:
     counts = status.get('counts', {})
     for kind in ['pattern', 'decision', 'gotcha', 'failure']:
         print(f"  {kind}: {counts.get(kind, 0)}")
+
+    quality = status.get('quality', {})
+    print(f"  filtered_low_quality: {quality.get('filtered_low_quality', 0)}")
 
     return 0
 

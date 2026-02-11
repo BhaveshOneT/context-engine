@@ -27,7 +27,8 @@ def main():
     # Import error monitor
     sys.path.insert(0, str(SCRIPT_DIR))
     try:
-        from error_monitor import detect_error, generate_error_fingerprint, add_to_failures_md
+        from error_monitor import detect_error
+        import event_store
 
         # Check if output contains error patterns
         if detect_error(tool_output):
@@ -41,10 +42,11 @@ def main():
                         'command': os.environ.get('CLAUDE_TOOL_INPUT', 'Unknown'),
                         'stack_trace': '\n'.join(lines[max(0,i-2):min(len(lines),i+10)])
                     }
-                    add_to_failures_md(error_data)
+                    event = event_store.record_error_event(error_data)
                     print(f"[CE] Error auto-captured to knowledge/failures.md")
+                    print(f"[CE] Event ID: {event.get('id', '')[:12]}")
                     break
-    except ImportError:
+    except Exception:
         pass
 
 if __name__ == '__main__':

@@ -16,6 +16,18 @@ CONFIG_FILE = MEMORY_DIR / 'config.yaml'
 # Cache for loaded config
 _config_cache: Optional[Dict[str, Any]] = None
 
+
+def _deep_merge(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
+    """Recursively merge override values into base dict."""
+    merged = dict(base)
+    for key, value in override.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = _deep_merge(merged[key], value)
+        else:
+            merged[key] = value
+    return merged
+
+
 def load_config() -> Dict[str, Any]:
     """
     Load configuration from config.yaml with caching
@@ -33,7 +45,9 @@ def load_config() -> Dict[str, Any]:
             'relevance_threshold': 0.3,
             'max_patterns': 3,
             'max_failures': 3,
-            'max_decisions': 2
+            'max_decisions': 2,
+            'min_quality': 0.35,
+            'max_render_chars': 1200,
         },
         'semantic_search': {
             'model': 'BAAI/bge-large-en-v1.5',
@@ -49,7 +63,9 @@ def load_config() -> Dict[str, Any]:
             'draft_mode': True,
             'run_on_idle': True,
             'run_on_file_change': True,
-            'min_discoveries': 2
+            'min_discoveries': 2,
+            'min_quality': 0.55,
+            'max_items_per_run': 24,
         },
         'monitoring': {
             'idle_threshold_minutes': 5,
@@ -62,8 +78,8 @@ def load_config() -> Dict[str, Any]:
         try:
             with open(CONFIG_FILE, 'r') as f:
                 user_config = yaml.safe_load(f) or {}
-                # Merge user config with defaults (user config takes precedence)
-                _config_cache = {**defaults, **user_config}
+                # Merge user config with defaults (user values take precedence)
+                _config_cache = _deep_merge(defaults, user_config)
                 return _config_cache
         except Exception as e:
             print(f"Warning: Failed to load config.yaml: {e}")

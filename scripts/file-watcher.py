@@ -21,9 +21,8 @@ try:
     from watchdog.observers import Observer
     from watchdog.events import FileSystemEventHandler
 except ImportError:
-    print("Error: watchdog library not installed")
-    print("   Install with: pip install watchdog")
-    sys.exit(1)
+    Observer = None
+    FileSystemEventHandler = object
 
 
 # Get project memory directory
@@ -32,8 +31,8 @@ ACTIVE_DIR = MEMORY_DIR / 'active'
 KNOWLEDGE_DIR = MEMORY_DIR / 'knowledge'
 LEDGERS_DIR = MEMORY_DIR / 'ledgers'
 
-# Debounce settings
-DEBOUNCE_SECONDS = 2
+WATCHDOG_AVAILABLE = Observer is not None
+DEBOUNCE_SECONDS = config_loader.get('monitoring.file_debounce_seconds', 2)
 
 
 class SmartFileWatcher(FileSystemEventHandler):
@@ -54,13 +53,8 @@ class SmartFileWatcher(FileSystemEventHandler):
             return True
         return False
 
-    def on_modified(self, event):
-        """React to file modifications"""
-        if event.is_directory:
-            return
-
-        file_path = Path(event.src_path)
-
+    def process_modified_path(self, file_path: Path):
+        """React to file modifications by path (used by both watchdog and polling)."""
         if not self._should_process(file_path):
             return
 
@@ -78,6 +72,13 @@ class SmartFileWatcher(FileSystemEventHandler):
         # Handle knowledge/ changes
         elif file_path.parent == KNOWLEDGE_DIR and file_path.suffix == '.md':
             self.handle_knowledge_update(file_path)
+
+    def on_modified(self, event):
+        """React to watchdog file modifications"""
+        if event.is_directory:
+            return
+
+        self.process_modified_path(Path(event.src_path))
 
     def handle_task_plan_update(self, file_path: Path):
         """React to task_plan.md changes - update continuity ledger"""
@@ -198,8 +199,75 @@ class SmartFileWatcher(FileSystemEventHandler):
             f.write(content)
 
 
-def start_watching(watch_dirs: list = None):
-    """Start the file watcher daemon"""
+def _iter_watch_files(watch_dirs: list):
+    """Yield markdown files from watch directories (non-recursive)."""
+    for watch_dir in watch_dirs:
+        if not watch_dir.exists():
+            continue
+        for file_path in watch_dir.glob('*.md'):
+            if file_path.is_file():
+                yield file_path
+
+
+def _start_watchdog(event_handler: SmartFileWatcher, watch_dirs: list):
+    """Start file watching via watchdog."""
+    observer = Observer()
+    for watch_dir in watch_dirs:
+        if watch_dir.exists():
+            observer.schedule(event_handler, str(watch_dir), recursive=False)
+
+    observer.start()
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print("\nFile watcher stopped")
+        observer.stop()
+    observer.join()
+
+
+def _start_polling(event_handler: SmartFileWatcher, watch_dirs: list, poll_seconds: float = 1.0):
+    """Fallback watcher without external dependencies."""
+    print("Mode: polling (watchdog not required)")
+
+    mtimes = {}
+    for file_path in _iter_watch_files(watch_dirs):
+        try:
+            mtimes[str(file_path)] = file_path.stat().st_mtime
+        except OSError:
+            continue
+
+    try:
+        while True:
+            current_paths = set()
+            for file_path in _iter_watch_files(watch_dirs):
+                key = str(file_path)
+                current_paths.add(key)
+                try:
+                    current_mtime = file_path.stat().st_mtime
+                except OSError:
+                    continue
+
+                previous_mtime = mtimes.get(key)
+                if previous_mtime is None:
+                    mtimes[key] = current_mtime
+                    continue
+
+                if current_mtime > previous_mtime:
+                    mtimes[key] = current_mtime
+                    event_handler.process_modified_path(file_path)
+
+            for stale_path in list(mtimes.keys()):
+                if stale_path not in current_paths:
+                    mtimes.pop(stale_path, None)
+
+            time.sleep(poll_seconds)
+    except KeyboardInterrupt:
+        print("\nFile watcher stopped")
+
+
+def start_watching(watch_dirs: list = None, mode: str = 'auto') -> int:
+    """Start the file watcher daemon."""
     if watch_dirs is None:
         watch_dirs = [ACTIVE_DIR, KNOWLEDGE_DIR]
 
@@ -214,34 +282,40 @@ def start_watching(watch_dirs: list = None):
     print("  - active/context.md -> Checks extraction triggers")
     print("  - knowledge/*.md -> Flags for re-indexing/embedding")
     print()
+    print(f"Debounce: {DEBOUNCE_SECONDS}s")
     print("Press Ctrl+C to stop")
     print()
 
     event_handler = SmartFileWatcher()
-    observer = Observer()
 
-    for watch_dir in watch_dirs:
-        if watch_dir.exists():
-            observer.schedule(event_handler, str(watch_dir), recursive=False)
+    normalized_mode = mode.lower().strip()
+    if normalized_mode not in {'auto', 'watchdog', 'polling'}:
+        print(f"Error: invalid mode '{mode}' (expected auto, watchdog, or polling)")
+        return 1
 
-    observer.start()
+    if normalized_mode == 'watchdog' and not WATCHDOG_AVAILABLE:
+        print("Warning: watchdog not installed, falling back to polling mode")
+        normalized_mode = 'polling'
 
-    try:
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        print("\nFile watcher stopped")
-        observer.stop()
+    if normalized_mode == 'watchdog' or (normalized_mode == 'auto' and WATCHDOG_AVAILABLE):
+        print("Mode: watchdog")
+        _start_watchdog(event_handler, watch_dirs)
+        return 0
 
-    observer.join()
+    _start_polling(event_handler, watch_dirs)
+    return 0
 
 
 def main():
-    if len(sys.argv) > 1 and sys.argv[1] == '--help':
+    args = sys.argv[1:]
+
+    if '--help' in args:
         print("Ultra-Planning V3: File Watcher")
         print()
         print("Usage:")
-        print("  file-watcher.py              # Start watching (default dirs)")
+        print("  file-watcher.py                         # Start watching (auto mode)")
+        print("  file-watcher.py --mode polling          # Force polling mode")
+        print("  file-watcher.py --mode watchdog         # Force watchdog mode")
         print("  file-watcher.py --help       # Show this help")
         print()
         print("Monitors file changes and triggers automatic actions:")
@@ -249,10 +323,22 @@ def main():
         print("  • context.md changes → auto extraction (configurable)")
         print("  • knowledge/ changes → flagged for re-indexing")
         print()
-        print("Requires: pip install watchdog")
+        print("Modes:")
+        print("  • auto (default): watchdog when available, else polling")
+        print("  • watchdog: event-based (requires pip install watchdog)")
+        print("  • polling: dependency-free fallback")
         sys.exit(0)
 
-    start_watching()
+    mode = 'auto'
+    if '--mode' in args:
+        idx = args.index('--mode')
+        if idx + 1 >= len(args):
+            print("Error: --mode requires a value (auto, watchdog, polling)")
+            sys.exit(1)
+        mode = args[idx + 1]
+
+    exit_code = start_watching(mode=mode)
+    sys.exit(exit_code)
 
 
 if __name__ == '__main__':

@@ -43,6 +43,12 @@ template_injection:
   # Relevance threshold for pattern/failure matching (0.0-1.0)
   relevance_threshold: 0.3
 
+  # Minimum entry quality score to include in injected context
+  min_quality: 0.35
+
+  # Max characters injected per knowledge section to prevent context bloat
+  max_render_chars: 1200
+
   # Maximum patterns to inject
   max_patterns: 3
 
@@ -96,6 +102,12 @@ auto_extraction:
 
   # Minimum discoveries required to trigger on file change
   min_discoveries: 2
+
+  # Minimum quality required before writing auto-extracted memory
+  min_quality: 0.55
+
+  # Hard cap to avoid dumping too many memories in one run
+  max_items_per_run: 24
 
 # Session Settings
 session:

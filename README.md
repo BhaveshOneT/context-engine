@@ -20,12 +20,26 @@
 ./ce deactivate   # Archive & stop when done
 ```
 
+### Claude Plugin Mode (No Commands Per Session)
+Run once:
+```bash
+./ce setup --force
+```
+After that, Context Engine starts automatically on every Claude Code `SessionStart` hook.
+
+### Install From GitHub (Plugin Bundle)
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/onethousand-ai/context-engine/main/plugin/install.sh)
+```
+This installs to `~/.claude/plugins/context-engine` and configures hooks automatically.
+
 ### Key Features:
 - 🤖 **100% Automated** - Zero manual intervention required
 - ⚡ **Single Command** - `./ce activate` starts everything
 - 🌐 **Web UI Dashboard** - Browse knowledge at localhost:8765
 - 🔥 **Error Auto-Capture** - Errors documented automatically via hooks
 - 📝 **Prompt Tracking** - Every request logged for learning
+- 🧾 **Durable Event Log** - Append-only WAL + replay for crash recovery
 - 🧠 **Auto-Session** - Sessions created from git branch name
 - 📦 **Auto-Archive** - Sessions archived on deactivate
 - 🔮 **Semantic Search** - Vector embeddings for intelligent retrieval
@@ -168,6 +182,7 @@
 - ✅ Prompt tracking
 - ✅ Learning extraction
 - ✅ Session archival
+- ✅ File watching (watchdog if installed, polling fallback otherwise)
 
 ### Optional Dependencies
 
@@ -188,6 +203,10 @@ pip install tree-sitter tree-sitter-languages
 ./ce activate      # Start everything (100% automatic)
 ./ce deactivate    # Archive session + stop services
 ./ce status        # Show what's running
+./ce doctor        # Diagnose setup/dependencies quickly
+./ce replay        # Replay pending durable events (recovery)
+./ce plugin-install    # Install as Claude Code plugin
+./ce plugin-uninstall  # Uninstall plugin hooks (optionally files)
 
 ./ce init <task>   # Manual session init (optional)
 ./ce archive       # Manual archive (optional)
@@ -202,7 +221,7 @@ pip install tree-sitter tree-sitter-languages
 
 | When | What |
 |------|------|
-| `./ce activate` | Session created from git branch, Web UI starts, hooks configured |
+| `./ce activate` | Session created from git branch, services start with health checks, hooks configured |
 | You code | Errors captured, prompts tracked, learnings extracted when idle |
 | `./ce deactivate` | Summary generated, session archived, services stopped |
 | Next session | Agent has all previous knowledge - starts smarter! |

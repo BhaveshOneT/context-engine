@@ -1,0 +1,21 @@
+{
+  "name": "context-engine",
+  "title": "Context Engine",
+  "version": "1.0.0",
+  "description": "Automatic memory layer for Claude Code with durable capture and replay.",
+  "repository": "https://github.com/onethousand-ai/context-engine",
+  "requires": {
+    "python": ">=3.9",
+    "git": true
+  },
+  "install": {
+    "script": "plugin/install.sh",
+    "uninstall_script": "plugin/uninstall.sh"
+  },
+  "hooks": {
+    "SessionStart": "scripts/hooks_AutoSessionStart.sh",
+    "UserPromptSubmit": "scripts/hooks_UserPromptSubmit.sh",
+    "PostToolUse:Bash": "scripts/hooks_PostToolUse_ErrorCapture.py",
+    "SessionEnd": "scripts/hooks_SessionEnd.sh"
+  }
+}

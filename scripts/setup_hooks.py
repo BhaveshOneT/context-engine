@@ -72,7 +72,7 @@ def generate_hooks_config(ce_root: Path) -> dict:
                     "hooks": [
                         {
                             "type": "command",
-                            "command": f"bash {ce_root_str}/scripts/hooks_SessionStart.sh",
+                            "command": f"bash {ce_root_str}/scripts/hooks_AutoSessionStart.sh",
                         }
                     ],
                 }
@@ -120,7 +120,7 @@ Add this to your Claude Code settings (~/.claude/settings.json):
     "SessionStart": [
       {{
         "matcher": {{}},
-        "hooks": [{{"type": "command", "command": "bash {ce_root}/scripts/hooks_SessionStart.sh"}}]
+        "hooks": [{{"type": "command", "command": "bash {ce_root}/scripts/hooks_AutoSessionStart.sh"}}]
       }}
     ],
     "SessionEnd": [
@@ -137,7 +137,7 @@ Add this to your Claude Code settings (~/.claude/settings.json):
 
 • UserPromptSubmit  → Tracks your prompts automatically
 • PostToolUse:Bash  → Captures errors from failed commands
-• SessionStart      → Loads knowledge at session start
+• SessionStart      → Auto-starts Context Engine on every session start
 • SessionEnd        → Checks for knowledge updates
 
 These hooks make the Context Engine 100% automatic!
@@ -151,6 +151,7 @@ def _is_ce_hook_entry(entry: dict) -> bool:
         'hooks_UserPromptSubmit.sh',
         'hooks_PostToolUse_ErrorCapture.py',
         'hooks_SessionStart.sh',
+        'hooks_AutoSessionStart.sh',
         'hooks_SessionEnd.sh',
         'prompt_tracker.py',
     )
@@ -230,12 +231,68 @@ def setup_hooks(force: bool = False):
     return True
 
 
+def remove_hooks():
+    """Remove Context Engine hooks from Claude Code settings."""
+    settings_path = get_claude_settings_path()
+
+    if not settings_path.exists():
+        print(f"{YELLOW}No Claude settings found at {settings_path}{NC}")
+        return True
+
+    try:
+        with open(settings_path, 'r') as f:
+            settings = json.load(f)
+    except json.JSONDecodeError:
+        print(f"{YELLOW}Could not parse {settings_path}, skipping hook removal{NC}")
+        return False
+
+    hooks = settings.get('hooks')
+    if not isinstance(hooks, dict):
+        print(f"{GREEN}✓{NC} No hooks configured")
+        return True
+
+    changed = False
+    for hook_name, hook_list in list(hooks.items()):
+        normalized = _normalize_hooks_list(hook_list if isinstance(hook_list, list) else [])
+        filtered = [entry for entry in normalized if not _is_ce_hook_entry(entry)]
+        if len(filtered) != len(normalized):
+            changed = True
+
+        if filtered:
+            hooks[hook_name] = filtered
+        else:
+            hooks.pop(hook_name, None)
+
+    if not hooks:
+        settings.pop('hooks', None)
+
+    if not changed:
+        print(f"{GREEN}✓{NC} No Context Engine hooks found")
+        return True
+
+    with open(settings_path, 'w') as f:
+        json.dump(settings, f, indent=2)
+
+    print(f"{GREEN}✓{NC} Context Engine hooks removed from {settings_path}")
+    return True
+
+
 def main():
     import sys
 
     force = '--force' in sys.argv
+    remove = '--remove' in sys.argv
     if '--show' in sys.argv:
         print_manual_setup()
+        return
+
+    if remove:
+        print(f"\n{BLUE}Removing Context Engine hooks...{NC}\n")
+        ok = remove_hooks()
+        if ok:
+            print(f"\n{GREEN}Context Engine hooks removed.{NC}\n")
+        else:
+            print(f"\n{YELLOW}Hook removal completed with warnings.{NC}\n")
         return
 
     print(f"\n{BLUE}Setting up Claude Code hooks...{NC}\n")
@@ -244,7 +301,8 @@ def main():
         print(f"\n{GREEN}Hooks are now active!{NC}")
         print(f"  • Prompts will be tracked automatically")
         print(f"  • Errors will be captured automatically")
-        print(f"\nRun '{YELLOW}./ce activate{NC}' to start using Context Engine\n")
+        print(f"  • Context Engine auto-starts on Claude SessionStart")
+        print(f"\nNo manual start command is required.\n")
     except Exception as e:
         print(f"{YELLOW}Could not auto-configure hooks: {e}{NC}")
         print(f"Please configure manually:\n")

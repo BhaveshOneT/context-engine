@@ -16,7 +16,7 @@ import subprocess
 
 
 # Get project memory directory
-MEMORY_DIR = Path(__file__).parent.parent
+MEMORY_DIR = Path(os.environ.get('PROJECT_MEMORY_DIR', Path(__file__).parent.parent))
 KNOWLEDGE_DIR = MEMORY_DIR / 'knowledge'
 ACTIVE_DIR = MEMORY_DIR / 'active'
 
@@ -205,7 +205,7 @@ def add_to_failures_md(error_data: Dict) -> None:
     print(f"✅ Error auto-captured [fp:{fingerprint}] to knowledge/failures.md")
 
 
-def add_to_error_log_table(error_data: Dict) -> None:
+def add_to_error_log_table(error_data: Dict, event_id: Optional[str] = None) -> None:
     """Add error to active/task_plan.md error log table"""
     task_plan_file = ACTIVE_DIR / 'task_plan.md'
 
@@ -214,6 +214,11 @@ def add_to_error_log_table(error_data: Dict) -> None:
 
     with open(task_plan_file, 'r') as f:
         content = f.read()
+
+    marker = f"[ev:{event_id}]" if event_id else ""
+    if marker and marker in content:
+        print(f"   (Error event already in task_plan.md {marker}, skipping)")
+        return
 
     # Find the error log table
     table_pattern = r'(## Live Error Log.*?\| Error \| Attempt \| Status \| Solution \| Knowledge Updated \|\n\|[-|]+\|)(.*?)((?=\n##|\Z))'
@@ -233,7 +238,10 @@ def add_to_error_log_table(error_data: Dict) -> None:
     attempt_count = existing_rows.lower().count(error_short.lower()) + 1
 
     # Create new row
-    new_row = f"\n| {error_short}... | {attempt_count} | 🔄 In Progress | (add solution here) | ⚠️ Pending |"
+    knowledge_cell = "⚠️ Pending"
+    if marker:
+        knowledge_cell = f"{knowledge_cell} {marker}"
+    new_row = f"\n| {error_short}... | {attempt_count} | 🔄 In Progress | (add solution here) | {knowledge_cell} |"
 
     # Insert new row at top of table (after header)
     updated_content = before_table + new_row + existing_rows + after_table
@@ -267,8 +275,13 @@ def process_error_from_buffer(buffer: List[str], command_context: Optional[str] 
     print("🔥 ERROR DETECTED:")
     print(f"   {symptom}")
     print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-    add_to_failures_md(error_data)
-    add_to_error_log_table(error_data)
+    try:
+        import event_store
+        event = event_store.record_error_event(error_data)
+        print(f"✅ Error event logged: {event.get('id', '')[:12]}")
+    except Exception:
+        add_to_failures_md(error_data)
+        add_to_error_log_table(error_data)
     print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
     print()
 

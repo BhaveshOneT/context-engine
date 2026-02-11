@@ -84,6 +84,26 @@ case "$1" in
     python3 "$CE_ROOT/scripts/service_manager.py" status
     ;;
 
+  replay)
+    # Replay pending durable events
+    python3 "$CE_ROOT/scripts/event_store.py" replay
+    ;;
+
+  plugin-install)
+    # Install as Claude Code plugin
+    bash "$CE_ROOT/plugin/install.sh"
+    ;;
+
+  plugin-uninstall)
+    # Uninstall plugin hooks/files (controlled by CE_REMOVE_FILES)
+    bash "$CE_ROOT/plugin/uninstall.sh"
+    ;;
+
+  doctor)
+    # Run dependency and environment diagnostics
+    python3 "$CE_ROOT/scripts/service_manager.py" doctor
+    ;;
+
   setup)
     # Setup Claude Code hooks
     python3 "$CE_ROOT/scripts/setup_hooks.py" "${@:2}"
@@ -103,6 +123,10 @@ case "$1" in
     echo "  activate | on      Start services + auto-create session"
     echo "  deactivate | off   Archive session + stop services"
     echo "  status             Show full status"
+    echo "  replay             Replay pending durable events"
+    echo "  plugin-install     Install plugin hooks automatically"
+    echo "  plugin-uninstall   Remove plugin hooks (and optionally files)"
+    echo "  doctor             Diagnose setup and dependencies"
     echo "  setup              Configure Claude Code hooks (one-time)"
     echo ""
     echo "  init <task>        Start new session"

@@ -12,11 +12,12 @@ Features:
 Inspired by claude-mem's UserPromptSubmit hook.
 """
 
+import os
 import sys
 import yaml
 import argparse
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Optional
 
 # Add scripts dir to path for imports
@@ -29,7 +30,7 @@ import config_loader
 # ============================================================================
 
 SCRIPT_DIR = Path(__file__).parent
-MEMORY_DIR = SCRIPT_DIR.parent
+MEMORY_DIR = Path(os.environ.get('PROJECT_MEMORY_DIR', SCRIPT_DIR.parent))
 ACTIVE_DIR = MEMORY_DIR / 'active'
 PROMPTS_LOG = ACTIVE_DIR / '.prompts_log.yaml'
 PROMPTS_HISTORY = MEMORY_DIR / 'prompts_history.yaml'
@@ -88,7 +89,7 @@ def record_prompt(
     max_length = config_loader.get('prompt_tracking.max_prompt_length', 500)
 
     entry = {
-        'timestamp': datetime.utcnow().isoformat() + 'Z',
+        'timestamp': datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
         'request': prompt_text[:max_length] if len(prompt_text) > max_length else prompt_text,
         'session_id': session_id or get_current_session_id(),
         'word_count': len(prompt_text.split()),
@@ -98,10 +99,16 @@ def record_prompt(
     if metadata:
         entry['metadata'] = metadata
 
-    # Append to active prompts log
-    prompts = load_prompts_log()
-    prompts.append(entry)
-    save_prompts_log(prompts)
+    # WAL-first path: append durable event, then apply to prompts log.
+    try:
+        import event_store
+        event = event_store.record_prompt_event(entry, session_id=entry['session_id'])
+        entry['event_id'] = event.get('id')
+    except Exception:
+        # Fallback path: direct write (best effort).
+        prompts = load_prompts_log()
+        prompts.append(entry)
+        save_prompts_log(prompts)
 
     return entry
 

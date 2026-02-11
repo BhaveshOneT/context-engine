@@ -62,6 +62,22 @@ if [ -f "$MEMORY_DIR/ledgers/CONTINUITY_active.md" ]; then
     echo "✓ Archived continuity ledger"
 fi
 
+# Archive prompt and durable event logs
+if [ -f "$MEMORY_DIR/active/.prompts_log.yaml" ]; then
+    mv "$MEMORY_DIR/active/.prompts_log.yaml" "$ARCHIVE_DIR/prompts.yaml"
+    echo "✓ Archived prompts log"
+fi
+
+if [ -f "$MEMORY_DIR/active/.events.jsonl" ]; then
+    mv "$MEMORY_DIR/active/.events.jsonl" "$ARCHIVE_DIR/events.jsonl"
+    echo "✓ Archived durable event log"
+fi
+
+if [ -f "$MEMORY_DIR/active/.events_state.json" ]; then
+    mv "$MEMORY_DIR/active/.events_state.json" "$ARCHIVE_DIR/events_state.json"
+    echo "✓ Archived event replay state"
+fi
+
 # Archive handoff
 if [ -f "$MEMORY_DIR/handoffs/latest.yaml" ]; then
     mkdir -p "$MEMORY_DIR/handoffs/archive"

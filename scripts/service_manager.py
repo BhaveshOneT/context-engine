@@ -11,6 +11,7 @@ import signal
 import subprocess
 import webbrowser
 import re
+import importlib.util
 from pathlib import Path
 from datetime import datetime
 from typing import Optional, Dict
@@ -28,14 +29,19 @@ SERVICES = {
         'name': 'Web UI',
         'command': [sys.executable, str(SCRIPT_DIR / 'web_ui' / 'server.py')],
         'port': 8765,
+        'required': False,
+        'dependency_module': 'flask',
+        'dependency_install': 'pip install flask',
     },
     'file_watcher': {
         'name': 'File Watcher',
         'command': [sys.executable, str(SCRIPT_DIR / 'file-watcher.py')],
+        'required': True,
     },
     'idle_extractor': {
         'name': 'Idle Extractor',
         'command': ['bash', str(SCRIPT_DIR / 'daemon-extract-learnings.sh'), '--watch'],
+        'required': True,
     },
 }
 
@@ -100,6 +106,32 @@ def check_port(port: int) -> bool:
     import socket
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         return s.connect_ex(('127.0.0.1', port)) == 0
+
+
+def dependency_issue(config: Dict) -> Optional[str]:
+    """Return dependency issue string if unavailable."""
+    module_name = config.get('dependency_module')
+    if not module_name:
+        return None
+    if importlib.util.find_spec(module_name) is not None:
+        return None
+
+    install_hint = config.get('dependency_install') or f'pip install {module_name}'
+    return f"missing Python package '{module_name}' ({install_hint})"
+
+
+def read_log_tail(service: str, lines: int = 6) -> str:
+    """Read the tail of a service log file."""
+    log_file = get_log_file(service)
+    if not log_file.exists():
+        return ""
+
+    try:
+        log_lines = log_file.read_text(errors='ignore').splitlines()
+    except OSError:
+        return ""
+
+    return "\n".join(log_lines[-lines:])
 
 
 # ============================================================================
@@ -332,6 +364,14 @@ def start_service(service: str, config: Dict) -> bool:
     name = config['name']
     command = config['command']
     port = config.get('port')
+    required = config.get('required', True)
+
+    issue = dependency_issue(config)
+    if issue:
+        color = RED if required else YELLOW
+        print(f"  {color}●{NC} {name} unavailable: {issue}")
+        remove_pid(service)
+        return False
 
     # Check if already running
     existing_pid = read_pid(service)
@@ -369,18 +409,38 @@ def start_service(service: str, config: Dict) -> bool:
                 cwd=str(MEMORY_DIR)
             )
 
-        write_pid(service, process.pid)
-        time.sleep(0.5)
+        time.sleep(0.8)
 
-        if is_running(process.pid):
-            print(f"  {GREEN}●{NC} {name} started (PID {process.pid})")
-            return True
-        else:
-            print(f"  {RED}●{NC} {name} failed - check {log_file}")
+        if process.poll() is not None:
+            remove_pid(service)
+            print(f"  {RED}●{NC} {name} failed to start")
+            tail = read_log_tail(service)
+            if tail:
+                last_line = tail.strip().splitlines()[-1]
+                print(f"     ↳ {last_line}")
+            else:
+                print(f"     ↳ check {log_file}")
             return False
+
+        if port:
+            for _ in range(10):
+                if check_port(port):
+                    break
+                time.sleep(0.2)
+            else:
+                process.terminate()
+                remove_pid(service)
+                print(f"  {RED}●{NC} {name} failed health check on port {port}")
+                print(f"     ↳ check {log_file}")
+                return False
+
+        write_pid(service, process.pid)
+        print(f"  {GREEN}●{NC} {name} started (PID {process.pid})")
+        return True
 
     except Exception as e:
         print(f"  {RED}●{NC} {name} error: {e}")
+        remove_pid(service)
         return False
 
 
@@ -442,6 +502,27 @@ def setup_hooks():
     return True
 
 
+def replay_durable_events():
+    """Replay pending durable events (best effort)."""
+    event_store = SCRIPT_DIR / 'event_store.py'
+    if not event_store.exists():
+        return
+
+    try:
+        result = subprocess.run(
+            [sys.executable, str(event_store), 'replay'],
+            cwd=str(MEMORY_DIR),
+            capture_output=True,
+            text=True,
+        )
+    except Exception:
+        return
+
+    output = (result.stdout or '').strip()
+    if output:
+        print(f"  {GREEN}●{NC} Durable replay: {output}")
+
+
 # ============================================================================
 # Main Commands
 # ============================================================================
@@ -462,22 +543,22 @@ def activate(open_browser: bool = True):
     else:
         session_name = create_auto_session()
         print(f"  {GREEN}●{NC} Created session: {BOLD}{session_name}{NC}")
+    replay_durable_events()
 
     print()
 
     # Step 2: Start Services
     print(f"{CYAN}Services:{NC}")
-    all_started = True
+    failed_required = []
+    failed_optional = []
     for service, config in SERVICES.items():
-        if not start_service(service, config):
-            all_started = False
-
-    # Wait for Web UI
-    web_port = SERVICES['web_ui']['port']
-    for _ in range(20):
-        if check_port(web_port):
-            break
-        time.sleep(0.5)
+        ok = start_service(service, config)
+        if ok:
+            continue
+        if config.get('required', True):
+            failed_required.append(config['name'])
+        else:
+            failed_optional.append(config['name'])
 
     print()
 
@@ -493,13 +574,26 @@ def activate(open_browser: bool = True):
     print()
 
     # Final Status
-    if all_started:
+    web_port = SERVICES['web_ui']['port']
+    web_ui_running = check_port(web_port)
+    core_ok = len(failed_required) == 0
+
+    if core_ok:
+        active_label = "✓ Context Engine Active"
+        active_color = GREEN
+        if failed_optional:
+            active_label = "✓ Context Engine Active (degraded)"
+            active_color = YELLOW
+
         url = f"http://localhost:{web_port}"
         print(f"{BLUE}{'━' * 50}{NC}")
-        print(f"{BOLD}{GREEN}  ✓ Context Engine Active{NC}")
+        print(f"{BOLD}{active_color}  {active_label}{NC}")
         print(f"{BLUE}{'━' * 50}{NC}")
         print()
-        print(f"  {BOLD}Web UI:{NC}    {BLUE}{url}{NC}")
+        if web_ui_running:
+            print(f"  {BOLD}Web UI:{NC}    {BLUE}{url}{NC}")
+        else:
+            print(f"  {BOLD}Web UI:{NC}    unavailable")
         print(f"  {BOLD}Session:{NC}   {session_name}")
         print(f"  {BOLD}Logs:{NC}      .logs/")
         print()
@@ -507,17 +601,53 @@ def activate(open_browser: bool = True):
         print(f"    • Errors → auto-captured to knowledge")
         print(f"    • Prompts → auto-tracked")
         print(f"    • Learnings → auto-extracted when idle")
+        if failed_optional:
+            print()
+            print(f"  {YELLOW}Optional services unavailable:{NC}")
+            for name in failed_optional:
+                print(f"    • {name}")
         print()
         print(f"  {YELLOW}Run './ce deactivate' when done{NC}")
         print(f"{BLUE}{'━' * 50}{NC}\n")
 
-        if open_browser:
+        if open_browser and web_ui_running:
             webbrowser.open(url)
     else:
-        print(f"{RED}✗ Some services failed{NC}")
-        print(f"  Check logs in .logs/")
+        print(f"{BLUE}{'━' * 50}{NC}")
+        print(f"{BOLD}{RED}  ✗ Context Engine Failed to Activate{NC}")
+        print(f"{BLUE}{'━' * 50}{NC}")
+        print(f"  Required services failed: {', '.join(failed_required)}")
+        print(f"  Check logs in .logs/ and run './ce doctor'")
 
-    return all_started
+    return core_ok
+
+
+def autostart(open_browser: bool = False):
+    """
+    Hook-safe auto-start path.
+    Starts/recovers core services without reconfiguring hooks or noisy output.
+    """
+    ensure_dirs()
+
+    if not has_active_session():
+        create_auto_session()
+
+    replay_durable_events()
+
+    failed_required = []
+    for service, config in SERVICES.items():
+        ok = start_service(service, config)
+        if not ok and config.get('required', True):
+            failed_required.append(config['name'])
+
+    core_ok = len(failed_required) == 0
+
+    if open_browser:
+        web_port = SERVICES['web_ui']['port']
+        if check_port(web_port):
+            webbrowser.open(f"http://localhost:{web_port}")
+
+    return core_ok
 
 
 def deactivate():
@@ -572,7 +702,17 @@ def status():
     print(f"{CYAN}Services:{NC}")
     any_running = False
     for service, config in SERVICES.items():
+        issue = dependency_issue(config)
+        if issue:
+            color = RED if config.get('required', True) else YELLOW
+            print(f"  {color}●{NC} {config['name']}: unavailable ({issue})")
+            continue
+
         pid = read_pid(service)
+        if pid and not is_running(pid):
+            remove_pid(service)
+            pid = None
+
         running = pid and is_running(pid)
         if running:
             any_running = True
@@ -599,9 +739,64 @@ def status():
     print(f"\n{BLUE}{'━' * 50}{NC}\n")
 
 
+def doctor() -> bool:
+    """Run lightweight diagnostics for required and optional features."""
+    ensure_dirs()
+
+    print(f"\n{BLUE}{'━' * 50}{NC}")
+    print(f"{BOLD}  Context Engine Doctor{NC}")
+    print(f"{BLUE}{'━' * 50}{NC}\n")
+
+    problems = 0
+    optional_gaps = 0
+
+    print(f"{CYAN}Runtime:{NC}")
+    print(f"  {GREEN}●{NC} Python: {sys.version.split()[0]}")
+
+    print(f"\n{CYAN}Services:{NC}")
+    for _, config in SERVICES.items():
+        issue = dependency_issue(config)
+        if issue:
+            if config.get('required', True):
+                problems += 1
+                print(f"  {RED}●{NC} {config['name']}: {issue}")
+            else:
+                optional_gaps += 1
+                print(f"  {YELLOW}●{NC} {config['name']}: {issue}")
+        else:
+            print(f"  {GREEN}●{NC} {config['name']}: ready")
+
+    print(f"\n{CYAN}Filesystem:{NC}")
+    checks = [
+        ('active/', ACTIVE_DIR),
+        ('knowledge/', MEMORY_DIR / 'knowledge'),
+        ('scripts/', SCRIPT_DIR),
+    ]
+    for label, path in checks:
+        if path.exists():
+            print(f"  {GREEN}●{NC} {label} found")
+        else:
+            problems += 1
+            print(f"  {RED}●{NC} {label} missing ({path})")
+
+    print(f"\n{BLUE}{'━' * 50}{NC}")
+    if problems == 0:
+        status_color = GREEN
+        summary = "Doctor OK"
+    else:
+        status_color = RED
+        summary = f"Doctor found {problems} required issue(s)"
+    print(f"{BOLD}{status_color}  {summary}{NC}")
+    if optional_gaps:
+        print(f"  {YELLOW}Optional gaps:{NC} {optional_gaps} (non-blocking)")
+    print(f"{BLUE}{'━' * 50}{NC}\n")
+
+    return problems == 0
+
+
 def main():
     if len(sys.argv) < 2:
-        print("Usage: service_manager.py <activate|deactivate|status>")
+        print("Usage: service_manager.py <activate|autostart|deactivate|status|doctor>")
         sys.exit(1)
 
     command = sys.argv[1]
@@ -610,10 +805,17 @@ def main():
         no_browser = '--no-browser' in sys.argv
         success = activate(open_browser=not no_browser)
         sys.exit(0 if success else 1)
+    elif command == 'autostart':
+        no_browser = '--no-browser' in sys.argv
+        success = autostart(open_browser=not no_browser)
+        sys.exit(0 if success else 1)
     elif command == 'deactivate':
         deactivate()
     elif command == 'status':
         status()
+    elif command == 'doctor':
+        success = doctor()
+        sys.exit(0 if success else 1)
     else:
         print(f"Unknown command: {command}")
         sys.exit(1)
